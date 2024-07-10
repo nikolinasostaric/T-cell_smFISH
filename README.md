@@ -1,6 +1,6 @@
 # T-cell_smFISH
 
-The provided code assigns 3D subcellular localization (nucleus or cytoplasm) to individual RNA spots identified by smFISH. The code is a part of a more extensive analysis pipeline, employed in this specific use-case to cytokines TNF and IFN$\gamma$ in CD8<sup>+</sup> T-cells. 
+The provided code assigns 3D subcellular localization (nucleus or cytoplasm) to individual RNA spots identified by smFISH. The code is a part of a more extensive analysis pipeline, employed in this specific use-case to cytokines TNF and IFN $\gamma$ in CD8<sup>+</sup> T-cells. 
 
 For full details, please see our preprint: V. M. Lattanzio *et al.*: T cell smFISH.
 
