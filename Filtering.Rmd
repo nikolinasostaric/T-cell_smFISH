@@ -1,0 +1,338 @@
+---
+title: "Filtering"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(stringr)
+```
+
+```{r clear environment and import data}
+
+rm(list = ls()) 
+
+# define data directory
+data_dir <- "path_to_folder/"
+
+# load data (IFNG, but the same cells are also in TNF) with cell and nucleus area for different timepoints 
+Area_0H <- read.csv(paste0(data_dir, "0H/IFN__FQ_batch_summary_MATURE_221205.txt"), header=F, sep="", skip = 5, col.names = c("file", "cell", "AREA_cell", "AREA_nucleus", "N_total",	"N_thres_Total",	"N_thres_Nuc"))
+Area_1H <- read.csv(paste0(data_dir, "1H/IFN__FQ_batch_summary_MATURE_221130.txt"), header=F, sep="", skip = 5, col.names = c("file", "cell", "AREA_cell", "AREA_nucleus", "N_total",	"N_thres_Total",	"N_thres_Nuc"))
+Area_2H <- read.csv(paste0(data_dir, "2H/IFN__FQ_batch_summary_MATURE_221207.txt"), header=F, sep="", skip = 5, col.names = c("file", "cell", "AREA_cell", "AREA_nucleus", "N_total",	"N_thres_Total",	"N_thres_Nuc"))
+Area_3H <- read.csv(paste0(data_dir, "3H/IFN__FQ_batch_summary_MATURE_221207.txt"), header=F, sep="", skip = 5, col.names = c("file", "cell", "AREA_cell", "AREA_nucleus", "N_total",	"N_thres_Total",	"N_thres_Nuc"))
+Area_4H <- read.csv(paste0(data_dir, "4H/IFN__FQ_batch_summary_MATURE_221208.txt"), header=F, sep="", skip = 5, col.names = c("file", "cell", "AREA_cell", "AREA_nucleus", "N_total",	"N_thres_Total",	"N_thres_Nuc"))
+Area_6H <- read.csv(paste0(data_dir, "6H/IFN__FQ_batch_summary_MATURE_221208.txt"), header=F, sep="", skip = 5, col.names = c("file", "cell", "AREA_cell", "AREA_nucleus", "N_total",	"N_thres_Total",	"N_thres_Nuc"))
+
+
+# fetch all files in FQ_outline folder
+Outlines_0H = list.files(paste0(data_dir, "0H/FQ_outline"), full.names=TRUE)
+Outlines_1H = list.files(paste0(data_dir, "1H/FQ_outline"), full.names=TRUE)
+Outlines_2H = list.files(paste0(data_dir, "2H/FQ_outline"), full.names=TRUE)
+Outlines_3H = list.files(paste0(data_dir, "3H/FQ_outline"), full.names=TRUE)
+Outlines_4H = list.files(paste0(data_dir, "4H/FQ_outline"), full.names=TRUE)
+Outlines_6H = list.files(paste0(data_dir, "6H/FQ_outline"), full.names=TRUE)
+
+# identify and fetch the log file among the files by matching "Logfile" with file names; make it case insensitive 
+Logfile_0H = Outlines_0H[which(grepl("Logfile", Outlines_0H, ignore.case = T))]
+Logfile_1H = Outlines_1H[which(grepl("Logfile", Outlines_1H, ignore.case = T))]
+Logfile_2H = Outlines_2H[which(grepl("Logfile", Outlines_2H, ignore.case = T))]
+Logfile_3H = Outlines_3H[which(grepl("Logfile", Outlines_3H, ignore.case = T))]
+Logfile_4H = Outlines_4H[which(grepl("Logfile", Outlines_4H, ignore.case = T))]
+Logfile_6H = Outlines_6H[which(grepl("Logfile", Outlines_6H, ignore.case = T))]
+
+# remove logfile from the bulk of files; now outline has only outline files
+Outlines_0H = setdiff(Outlines_0H, Logfile_0H)
+Outlines_1H = setdiff(Outlines_1H, Logfile_1H)
+Outlines_2H = setdiff(Outlines_2H, Logfile_2H)
+Outlines_3H = setdiff(Outlines_3H, Logfile_3H)
+Outlines_4H = setdiff(Outlines_4H, Logfile_4H)
+Outlines_6H = setdiff(Outlines_6H, Logfile_6H)
+
+
+# fetch quantification files
+Spots_0H <- list.files(paste0(data_dir, "0H/3D_spots"), full.names=TRUE)
+Spots_1H <- list.files(paste0(data_dir, "1H/3D_spots"), full.names=TRUE)
+Spots_2H <- list.files(paste0(data_dir, "2H/3D_spots"), full.names=TRUE)
+Spots_3H <- list.files(paste0(data_dir, "3H/3D_spots"), full.names=TRUE)
+Spots_4H <- list.files(paste0(data_dir, "4H/3D_spots"), full.names=TRUE)
+Spots_6H <- list.files(paste0(data_dir, "6H/3D_spots"), full.names=TRUE)
+
+
+rm(data_dir)
+
+```
+
+```{r identify cells with a nucleus}
+
+# combine all timepoints into 1 dataframe and remove all rows with nuclear are == 0
+Area_all = rbind(Area_0H, Area_1H, Area_2H, Area_3H, Area_4H, Area_6H)
+Area_all <- Area_all[Area_all$AREA_nucleus>0 ,]
+
+# make ID that combines all important info to uniquely determine a cell
+Area_all <- Area_all %>% dplyr::mutate(ID = substr(Area_all$file, 1, 15))
+Area_all <- Area_all %>% dplyr::mutate(ID = paste0(ID, "_", cell))
+
+# rename dataframe and keep only ID column; remove all data frames that we don't need anymore
+Cells_with_nucleus <- Area_all %>% select(ID)
+rm(Area_all, Area_0H, Area_1H, Area_2H, Area_3H, Area_4H, Area_6H)
+
+```
+
+IDs of cells with a nucleus (from all timepoints) are in dataframe Cells_with_nucleus
+
+```{r identify cells in division}
+
+# use logfile from fish quant to identify cells that are in division
+
+# combine all logfiles into a list
+logfiles = c(Logfile_0H, Logfile_1H, Logfile_2H, Logfile_3H, Logfile_4H, Logfile_6H)
+
+ID = ""
+Dividing_cells = data.frame()
+
+# go one by one logfile
+for (file_ in logfiles) {
+  
+  # open logfile 
+  log = read.csv(file_, sep = '\t', header = FALSE)
+  
+  # go line by line of logfile
+  for (i in 1:dim(log)[1]){
+  
+  # if line has ANALYZE file and two lines below is RUNNING conversion, then 1 line below extract file name (ID)
+  if (grepl("=== ANALYZE file", log[i,1]) == TRUE){
+    if (grepl("RUNNING CONVERSION for cells ...", log[i+2,1]) == TRUE){
+    ID = substr(log[i+1,1], 7,21)
+    } 
+  }
+  
+   # if line contains Cell already has a nucleus, take cell ID from one line below, and together with ID put into data frame
+   if (grepl("Cell already has a nucleus", log[i,1]) == TRUE){
+     Dividing_cells <- rbind(Dividing_cells, c(ID, substr(log[i+1,1],12,14)))
+   }
+  
+  }
+}
+
+rm(log, logfiles, Logfile_0H, Logfile_1H, Logfile_2H, Logfile_3H, Logfile_3H, Logfile_4H, Logfile_6H, i, ID, file_)
+
+# rename column names, combine file and cell info, and then keep only this unique ID
+colnames(Dividing_cells) <- c("file", "cell")
+Dividing_cells <- Dividing_cells %>% dplyr::mutate(ID = paste0(file, "_Cell_CP_", cell))
+Dividing_cells <- Dividing_cells %>% select(ID)
+
+# remove duplicated rows - could be that a cell had more than 2 nuclei so appears more than once here
+Dividing_cells <- as.data.frame(Dividing_cells[!duplicated(Dividing_cells) ,])
+colnames(Dividing_cells) <- "ID"
+
+write.csv(Dividing_cells, "List_of_DIVIDING_CELLS.txt")
+
+```
+
+IDs of cells that are in division (from all timepoints) are in dataframe Dividing_cells
+
+```{r identify cells that are on edges of coverslips}
+
+cell = ""
+Cells_on_edge = data.frame()
+
+Outlines_all <- c(Outlines_0H, Outlines_1H, Outlines_2H, Outlines_3H, Outlines_4H, Outlines_6H)
+
+for (file_ in Outlines_all) {
+
+  #print(file_)
+  outline = read.csv(file_, sep = ' ', header = FALSE)
+
+  for (i in 1:dim(outline)[1]){
+  
+    # name of file
+    if (grepl("IMG_Raw", outline[i,1]) == TRUE){
+      file = substr(outline[i,1], 9, 23)
+    }
+    
+     # if cell coordinates are starting, note the cell ID and look for edge coordinates
+     if (grepl("CELL_START", outline[i,1]) == TRUE){
+       cell = substr(outline[i,1], 12, 22)
+       edge = "no"
+       
+       #check if in X_POS or Y_POS (one and two rows below) there's something touching the edge
+       if (grepl("\t1\t|\t2304", outline[i+1,1]) == TRUE | grepl("\t1\t|\t2304", outline[i+2,1]) == TRUE){
+         edge = "yes"
+       }
+       
+       if (edge == "yes"){
+         Cells_on_edge <- rbind(Cells_on_edge, c(file, cell))
+       }
+       
+     }
+    
+  }
+}
+
+rm(outline, cell, edge, i, Outlines_0H, Outlines_1H, Outlines_2H, Outlines_3H, Outlines_4H, Outlines_6H, Outlines_all, file_, file)
+
+# rename column names, combine file and cell info, and then keep only this unique ID
+colnames(Cells_on_edge) <- c("file", "cell")
+Cells_on_edge <- Cells_on_edge %>% dplyr::mutate(ID = paste0(file, "_", cell))
+Cells_on_edge <- Cells_on_edge %>% select(ID)
+
+```
+
+IDs of cells that are touching coverslip edges (from all timepoints) are in dataframe Cells_on_edge
+
+```{r make a list of good cells that remain after filtering}
+
+# how many cells are with nucleus, not on edge, and not in division?
+
+Cells_with_nucleus_not_dividing <- as.data.frame(setdiff(Cells_with_nucleus$ID, Dividing_cells$ID))
+colnames(Cells_with_nucleus_not_dividing) <- "ID"
+
+Cells_with_nucleus_not_dividing_not_edge <- as.data.frame(setdiff(Cells_with_nucleus_not_dividing$ID, Cells_on_edge$ID))
+colnames(Cells_with_nucleus_not_dividing_not_edge) <- "ID"
+Good_cells <- Cells_with_nucleus_not_dividing_not_edge
+
+rm(Cells_with_nucleus_not_dividing, Cells_with_nucleus_not_dividing_not_edge)
+
+
+
+# from these "good" cells, how many are from each timepoint? let's see e.g. at 6h
+
+sum(grepl("_6H", Good_cells$ID))
+
+# save good cells list
+
+write.csv(Good_cells, "Filtered_list_of_cells.txt")
+
+```
+
+We start with 11807 cell before any filtering
+
+11030 cells with nucleus
+10760 cells with nucleus and not in division
+
+There are 4 cells that are in division, but area of nucleus == 0:
+"D1_2HCD3CD28_01_Cell_CP_67"  "D2_2HCD3CD28_05_Cell_CP_95"  "D3_2HCD3CD28_06_Cell_CP_80"  "D3_2HCD3CD28_08_Cell_CP_156"
+These nuclei were sticking out of the cell bounds, so an error of this type was raised by fish quant:
+"Nucleus could not be assigned to any cell. Must be ENTIRELY within the cell."
+
+9432 cells with nucleus, not in division, and not on edge
+There are 188 cells that are on edge, but already excluded before due to no nucleus or in-division status
+
+So overall we lost 11807-9423 = 2384 cells with these filters (20.2% of the initial number).
+
+From those 9423 cells that are OK after all filters, per timepoint we have:
+0H - 1031
+1H - 1500
+2H - 1830
+3H - 1613
+4H - 950
+6H - 2499
+
+
+Next step is extracting coordinates of detected spots. While doing it, we'll only look at the cells that are in our list of "good_cells".
+
+```{r extract spots coordinates from cells that remain after filtering}
+
+# combine all spots files
+Spots_all <- c(Spots_0H, Spots_1H, Spots_2H, Spots_3H, Spots_4H, Spots_6H) 
+
+cytokine = ""
+Spots_good = data.frame()
+
+# go one by one logfile
+for (file_ in Spots_all) {
+  
+  # which cytokine are the spots in this files describing? extract info from file_ name
+  cytokine <- str_split(str_split(file_, "/")[[1]][9], "_")[[1]][1]
+  
+  # open logfile 
+  spots = read.csv(file_, sep = '\t', header = FALSE, skip=13)
+  colnames(spots) <- spots[1,]
+  spots <- spots[-1,]
+  
+  # edit the table - add cytokine column and assemble ID that can be matched with Good_cells 
+  spots$cytokine <- cytokine
+  spots <- spots %>% dplyr::mutate(ID = substr(spots$File, 1, 15))
+  spots <- spots %>% dplyr::mutate(ID = paste0(ID, "_", Cell))
+  
+  # keep only the relevant columns - ID, cytokine, coordinates of spots; turn coordinates to numeric cause they're characters
+  spots <- spots %>% select(ID, cytokine, Z_det, Y_det, X_det)
+  #sapply(spots, class) # with this you can see which class each column is
+  spots$Z_det <- as.integer(spots$Z_det)
+  spots$Y_det <- as.integer(spots$Y_det)
+  spots$X_det <- as.integer(spots$X_det)
+  
+  # keep only those cells (rows) that are among Good_cells (so filtered ones)
+  spots <- merge(spots, Good_cells, by = "ID", all = F)
+  
+  # merge all data into 1 table
+  Spots_good <- rbind(Spots_good, spots)
+
+}
+
+rm(spots, cytokine, file_, Spots_0H, Spots_1H, Spots_2H, Spots_3H, Spots_4H, Spots_6H, Spots_all) 
+
+write.csv(Spots_good, "Filtered_list_of_spots_coordinates.csv")
+
+```
+
+Spots_good now has all spots (TNF and IFN) that are within the filtered cells.
+
+Overall across all timepoints we have:
+73929 IFN spots in 6580 cells
+60165 TNF spots in 5737 cells
+
+
+```{r extract spots coordinates from cells that are in division}
+
+# combine all spots files
+Spots_all <- c(Spots_0H, Spots_1H, Spots_2H, Spots_3H, Spots_4H, Spots_6H) 
+
+cytokine = ""
+Spots_good = data.frame()
+
+# go one by one logfile
+for (file_ in Spots_all) {
+  
+  # which cytokine are the spots in this files describing? extract info from file_ name
+  cytokine <- str_split(str_split(file_, "/")[[1]][9], "_")[[1]][1]
+  
+  # open logfile 
+  spots = read.csv(file_, sep = '\t', header = FALSE, skip=13)
+  colnames(spots) <- spots[1,]
+  spots <- spots[-1,]
+  
+  # edit the table - add cytokine column and assemble ID that can be matched with Good_cells 
+  spots$cytokine <- cytokine
+  spots <- spots %>% dplyr::mutate(ID = substr(spots$File, 1, 15))
+  spots <- spots %>% dplyr::mutate(ID = paste0(ID, "_", Cell))
+  
+  # keep only the relevant columns - ID, cytokine, coordinates of spots; turn coordinates to numeric cause they're characters
+  spots <- spots %>% select(ID, cytokine, Z_det, Y_det, X_det)
+  #sapply(spots, class) # with this you can see which class each column is
+  spots$Z_det <- as.integer(spots$Z_det)
+  spots$Y_det <- as.integer(spots$Y_det)
+  spots$X_det <- as.integer(spots$X_det)
+  
+  # keep only those cells (rows) that are among dividing cells
+  spots <- merge(spots, Dividing_cells, by = "ID", all = F)
+  
+  # merge all data into 1 table
+  Spots_good <- rbind(Spots_good, spots)
+
+}
+
+rm(spots, cytokine, file_, Spots_0H, Spots_1H, Spots_2H, Spots_3H, Spots_4H, Spots_6H, Spots_all) 
+
+write.csv(Spots_good, "Filtered_list_of_spots_coordinates_DIVIDING_CELLS.csv")
+
+length(unique(Spots_good$ID)) # 236
+table(Spots_good$cytokine)
+
+rm(Spots_good)
+
+```
+
+4859 spots (2624 IFNG and 2235 TNF) in 236 dividing cells (from a total of 274 dividing cells that we filtered out).
+With this filtered list, we can next determine their subcellular localization by combining this data with Cellpose output.
