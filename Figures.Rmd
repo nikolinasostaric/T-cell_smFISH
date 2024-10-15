@@ -1,0 +1,1801 @@
+---
+title: "Figures"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(dplyr)
+library(stringr)
+library(readxl)
+library(tidyr)
+library(viridis)
+library(ggpubr)
+library (stats)
+library(ggplot2)
+library(ggprism)
+library(patchwork)
+library(scales)
+
+knitr::opts_knit$set("~/XXXX/smFISH/")
+```
+
+## Import spots data
+```{r}
+
+# ## import the spots data
+# Data_all = read.csv("~/Dropbox/Valeria/smFISH/Data/Spots_with_localization.csv") # as info namely, cytokine, xyz, and nuclei mask
+# Data_all = Data_all %>% dplyr::mutate(ID = paste0(ID,"_", cytokine)) # adding the cytokine info to the ID column
+# Data_all =  Data_all %>% dplyr::select(ID, nuclei_mask) # selecting only ID and nuclei mask
+# 
+# # assign for each spot (row) if it's in nucleus (nuclei_mask > 0) or cytoplasm (nuclei_mask = 0); make 2 new columns with this info
+# ## create 2 new columns called nucleus and cytoplasm
+# Data_all$nucleus = ""
+# Data_all$cytoplasm = ""
+# Data_all$nucleus = ifelse(Data_all$nuclei_mask > 0, 1, 0)
+# Data_all$cytoplasm = ifelse(Data_all$nuclei_mask == 0, 1, 0)
+# Data_all$nuclei_mask = NULL
+# 
+# # summarize per ID_cytokine (i.e., per cell) how many spots are in nucleus and cytoplasm
+# ## create a new dataframe 
+# ## df shows how many are seen in nucleus and likewise df2 is for cytoplasm
+# df = Data_all %>% group_by(ID) %>% summarise(N_mature_nucleus = sum(nucleus))
+# df2 = Data_all %>% group_by(ID) %>% summarise(N_mature_cytoplasm = sum(cytoplasm))
+# Data = merge(df, df2, by="ID")
+# Data = Data %>% dplyr::mutate(N_mature_total = N_mature_nucleus + N_mature_cytoplasm) ## number cytokine found in nucleus, cytoplasm and total per cell
+# rm(df, df2, Data_all) # optional step you can remove df and df2 
+# dim(Data) # 12317 x 4
+
+## Import the spots data of WT
+Data = read.csv("~/XXXX/RNA_counts_per_cell.csv")
+IFNG_all = Data[Data$cytokine == "IFN",]
+TNF_all = Data[Data$cytokine == "TNF",]
+
+## import RNA cell counts per cells of HURKO
+HuRKO_Data = read.csv("~/Dropbox/Valeria/smFISH/Data/RNA_counts_per_cell_HuRKO.csv") ## 26944
+
+## subsetting the HuRKO data based on cytokines
+HuRKO_IFNG_all = HuRKO_Data[HuRKO_Data$cytokine == "IFN",] ## 11784
+HuRKO_TNF_all = HuRKO_Data[HuRKO_Data$cytokine == "TNF",] ## 15160
+
+
+```
+
+
+## Plots from Figure 1
+```{r}
+
+## Import the spots data 
+Data = read.csv("~/XXXX/RNA_counts_per_cell.csv")
+IFNG_all = Data[Data$cytokine == "IFN",]
+TNF_all = Data[Data$cytokine == "TNF",]
+
+## Figure 1D
+# using nascent RNA information from IFNG_all and TNF_all
+## IFNG ##
+nascent_plotting_IFNG = IFNG_all 
+nascent_plotting_IFNG = transform(nascent_plotting_IFNG, timepoint = as.character(timepoint))
+nascent_plotting_IFNG$use_Donor = "D" ## pooled donors
+
+## plotting
+pdf("~/XXXX/Figure_1D_IFNG.pdf")
+
+set.seed(123)
+ggplot(nascent_plotting_IFNG, aes(x = use_Donor, y = N_nascent_total)) +
+  geom_point(size = 1, position = "jitter", alpha = 0.5)+
+  ylab(expression(~italic(n)~"(nascent RNA)/ cell)")) + xlab("")+
+  facet_grid(.~timepoint, labeller = as_labeller(c("0" = "0", "1" = "1h", "2" = "2h", "3" = "3h", "4" = "4h", "6" = "6h")))+
+  ggtitle("IFNG") +
+  coord_cartesian(clip = "off") +
+  scale_y_continuous(limits = c(0,60), breaks = c(0,10,20,30,40,50,60))+
+  stat_summary(data = nascent_plotting_IFNG[nascent_plotting_IFNG$N_nascent_total>0,],fun.y=median,geom = "crossbar", width = 1.0, color="red",size=0.3)+
+  theme_classic() +
+  theme(axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) +
+theme(panel.background = element_rect(fill = "white", colour = "black"),
+        strip.background = element_rect(fill = "white", colour = "black"),
+        legend.key = element_blank(),
+        legend.title = element_blank(),
+        aspect.ratio = 16/9)
+
+dev.off()
+
+## TNF ##
+nascent_plotting_TNF = TNF_all 
+nascent_plotting_TNF = transform(nascent_plotting_TNF, timepoint = as.character(timepoint))
+nascent_plotting_TNF$use_Donor = "D" ## pooled donors
+
+## plotting 
+pdf("~/XXXX/Figure_ID_TNF.pdf")
+
+set.seed(123)
+ggplot(nascent_plotting_TNF, aes(x = use_Donor, y = N_nascent_total)) +
+  geom_point(size = 1, position = "jitter", alpha = 0.5)+
+  ylab(expression(~italic(n)~"(nascent RNA)/cell)")) + xlab("")+
+  facet_grid(.~timepoint, labeller = as_labeller(c("0" = "0", "1" = "1h", "2" = "2h", "3" = "3h", "4" = "4h", "6" = "6h")))+
+  ggtitle("TNF") +
+  scale_y_continuous(limits = c(0,60), breaks = c(0,10,20,30,40,50))+
+  coord_cartesian(clip = "off") +
+  stat_summary(data = nascent_plotting_TNF[nascent_plotting_TNF$N_nascent_total>0,],fun.y=median,geom = "crossbar", width = 1.0, color="red",size=0.3)+
+  theme_classic() +
+  theme(axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) +
+theme(panel.background = element_rect(fill = "white", colour = "black"),
+        strip.background = element_rect(fill = "white", colour = "black"),
+        legend.key = element_blank(),
+        legend.title = element_blank(),
+        aspect.ratio = 16/9)
+
+dev.off()
+
+
+## Figure 1E
+# using mature RNA information from IFNG_all and TNF_all
+## IFNG ##
+mature_plotting_IFNG = IFNG_all[IFNG_all$N_mature_total > 0 ,] # only selecting mature RNA > 0
+mature_plotting_IFNG = transform(mature_plotting_IFNG, timepoint = as.character(timepoint))
+mature_plotting_IFNG$use_Donor = "D" ## pooling the donors
+
+## plotting 
+pdf("~/XXXX/Figure_1E_IFNG.pdf")
+
+set.seed(123)
+ggplot(mature_plotting_IFNG, aes(x = use_Donor, y = N_mature_total)) +
+  geom_point(size = 1, position = "jitter", alpha = 0.5)+
+  ylab(expression(~italic(n)~"(mRNA) / cell)")) + xlab("")+
+  facet_grid(.~timepoint, labeller = as_labeller(c("0" = "0", "1" = "1h", "2" = "2h", "3" = "3h", "4" = "4h", "6" = "6h")))+
+  ggtitle("IFNG") +
+  scale_y_log10(limits = c(1,300), guide = "prism_minor",expand = c(0.05,0),minor_breaks = rep(1:9, 4)*(10^rep(0:3, each = 9)),breaks = c(1,10,100,300))+
+  coord_cartesian(clip = "off") +
+  coord_fixed()+
+  stat_summary(fun.y=median,geom = "crossbar", width = 1.0, color="red",size=0.3)+
+  theme_classic() +
+  theme(axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) +
+theme(panel.background = element_rect(fill = "white", colour = "black"),
+        strip.background = element_rect(fill = "white", colour = "black"),
+        legend.key = element_blank(),
+        legend.title = element_blank())
+
+dev.off()
+
+
+## TNF ##
+mature_plotting_TNF = TNF_all[TNF_all$N_mature_total > 0 ,] # only selecting mature RNA > 0
+mature_plotting_TNF = transform(mature_plotting_TNF, timepoint = as.character(timepoint))
+mature_plotting_TNF$use_Donor = "D"  ## pooling the donors
+
+## plotting 
+pdf("~/XXXX/Figure_1E_TNF.pdf")
+
+set.seed(123)
+ggplot(mature_plotting_TNF, aes(x = use_Donor, y = N_mature_total)) +
+  geom_point(size = 1, position = "jitter", alpha = 0.5)+
+  ylab(expression(~italic(n)~"(mRNA) / cell)")) + xlab("")+
+  facet_grid(.~timepoint, labeller = as_labeller(c("0" = "0", "1" = "1h", "2" = "2h", "3" = "3h", "4" = "4h", "6" = "6h")))+
+  ggtitle("TNF") +
+  scale_y_log10(limits = c(1,300), guide = "prism_minor",expand = c(0.05,0),minor_breaks = rep(1:9, 4)*(10^rep(0:3, each = 9)),breaks = c(1,10,100,300))+
+  coord_cartesian(clip = "off") +
+  coord_fixed()+
+  stat_summary(fun.y=median,geom = "crossbar", width = 1.0, color="red",size=0.3)+
+  theme_classic() +
+  theme(axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) +
+theme(panel.background = element_rect(fill = "white", colour = "black"),
+        strip.background = element_rect(fill = "white", colour = "black"),
+        legend.key = element_blank(),
+        legend.title = element_blank())
+
+dev.off()
+
+## FIGURE 1G
+# using the protein intensity information from FACS_IFN_all and FACS_TNF_all
+## Import the FACS data 
+FACS_IFN_all = read.csv("~/XXXX/FACS_IFN_WT.csv")
+FACS_TNF_all = read.csv("~/XXXX/FACS_TNF_WT.csv")
+
+## IFNG ##
+plotting_FACS_IFN_all = FACS_IFN_all # calling the facs information of IFNG
+plotting_FACS_IFN_all$timepoint = gsub("h","",plotting_FACS_IFN_all$timepoint) # removing from h in the timepoint
+plotting_FACS_IFN_all = transform(plotting_FACS_IFN_all, timepoint = as.character(timepoint)) # make sure timepoint is character
+plotting_FACS_IFN_all = transform(plotting_FACS_IFN_all, IFNG = as.numeric(IFNG)) # make sure IFNG is numeric
+plotting_FACS_IFN_all$use_Donor = "D"
+
+pdf("~/XXXX/Figure_1G_IFNG.pdf")
+
+set.seed(123)
+ggplot(plotting_FACS_IFN_all, aes(x = use_Donor, y = IFNG)) +
+  geom_violin(trim = F, fill = "black")+
+  ylab(expression("protein fluorescence intensity/cell")) + xlab("")+
+  facet_grid(.~timepoint, labeller = as_labeller(c("0" = "0", "1" = "1h", "2" = "2h", "3" = "3h", "4" = "4h", "6" = "6h")))+
+  scale_y_log10(limits = c(200,90000),breaks = 10^(2:7),guide = "prism_minor", minor_breaks = rep(1:9, 4)*(10^rep(0:6, each = 9)),labels = trans_format("log10", math_format(10^.x)))+
+  ggtitle("IFNG") +
+  coord_cartesian(clip = "off") +
+  stat_summary(fun.y=median,geom = "crossbar", width = 1.0, color="red",size=0.3)+
+  theme_classic() +
+  theme(axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) +
+theme(panel.background = element_rect(fill = "white", colour = "black"),
+        strip.background = element_rect(fill = "white", colour = "black"),
+        legend.key = element_blank(),
+        legend.title = element_blank(),
+        aspect.ratio = 16/9)
+
+dev.off()
+
+
+## TNF ##
+plotting_FACS_TNF_all = FACS_TNF_all # calling the facs information of TNF
+plotting_FACS_TNF_all$timepoint = gsub("h","",plotting_FACS_TNF_all$timepoint)  # removing from h in the timepoint
+plotting_FACS_TNF_all = transform(plotting_FACS_TNF_all, timepoint = as.character(timepoint)) # make sure timepoint is character
+plotting_FACS_TNF_all = transform(plotting_FACS_TNF_all, TNF = as.numeric(TNF)) # make sure TNF is numeric
+plotting_FACS_TNF_all$use_Donor = "D"
+
+pdf("~/XXXX/Figure_1G_TNF.pdf")
+
+set.seed(123)
+ggplot(plotting_FACS_TNF_all, aes(x = use_Donor, y = TNF)) +
+    geom_violin(trim = F, fill = "black")+
+  ylab(expression("protein fluorescence intensity/cell")) + xlab("")+
+  scale_y_log10(limits = c(200,90000),breaks = 10^(2:7),guide = "prism_minor", minor_breaks = rep(1:9, 4)*(10^rep(0:6, each =    9)),labels = trans_format("log10", math_format(10^.x)))+
+  facet_grid(.~timepoint, labeller = as_labeller(c("0" = "0", "1" = "1h", "2" = "2h", "3" = "3h", "4" = "4h", "6" = "6h")))+
+  ggtitle("TNF") +
+  coord_cartesian(clip = "off") +
+  stat_summary(fun.y=median,geom = "crossbar", width = 0.7, color="red",size=0.3)+
+  theme(axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) +
+  theme(panel.background = element_rect(fill = "white", colour = "black"),
+        strip.background = element_rect(fill = "white", colour = "black"),
+        legend.key = element_blank(),
+        legend.title = element_blank(),
+         aspect.ratio = 16/9)
+
+dev.off()
+
+
+```
+
+
+## Plots from Figure 2
+```{r}
+
+## using the Data table with respect to single expressors (SP) and double expressors (DP)
+# import data  or use from the previous steps
+Data = read.csv("~/Dropbox/Valeria/smFISH/Data/Microscopy/RNA_counts_per_cell.csv")
+
+# extract IFNG and TNF info from Data
+IFNG_all = Data[Data$cytokine == "IFN" ,]
+TNF_all = Data[Data$cytokine == "TNF" ,]
+
+# add IFN and TNF to IDs
+IFNG_all = IFNG_all %>% dplyr::mutate(ID = str_replace(IFNG_all$ID, "_IFN", ""))
+TNF_all = TNF_all %>% dplyr::mutate(ID = str_replace(TNF_all$ID, "_TNF", ""))
+
+# select the necessary columns
+IFNG_all = IFNG_all %>% select(ID, N_mature_nucleus, N_mature_cytoplasm, N_mature_total, N_nascent_Ts_1, N_nascent_Ts_2, N_nascent_total)
+TNF_all = TNF_all %>% select(ID, N_mature_nucleus, N_mature_cytoplasm, N_mature_total, N_nascent_Ts_1, N_nascent_Ts_2, N_nascent_total)
+
+#combine TNF and IFNG
+## add IFNG and TNF to the column names
+colnames(IFNG_all) = paste("IFNG", colnames(IFNG_all), sep = "_")
+colnames(TNF_all) = paste("TNF", colnames(TNF_all), sep = "_")
+
+## combine 2 dfs
+IFNG_TNF_all = merge(IFNG_all, TNF_all, by.x="IFNG_ID", by.y="TNF_ID", all=T) # 7896
+
+# there are some NAs because some cells have TNF and not IFNG, and the other way around
+# replace NA with 0
+IFNG_TNF_all[is.na(IFNG_TNF_all)] = 0 #replacing NA by 0
+colnames(IFNG_TNF_all)[1] = "ID"
+IFNG_TNF_all = IFNG_TNF_all %>% dplyr::mutate(donor = str_split(IFNG_TNF_all$ID, pattern= "\\_", simplify=TRUE)[,1])
+IFNG_TNF_all = IFNG_TNF_all %>% dplyr::mutate(timepoint = str_sub(str_split(IFNG_TNF_all$ID, pattern= "\\_", simplify=TRUE)[,2], 1, 1))
+
+# subetting for plotting 
+Mature_producer_SP_DP = IFNG_TNF_all 
+Mature_producer_SP_DP = Mature_producer_SP_DP[Mature_producer_SP_DP$IFNG_N_mature_total !=0 | Mature_producer_SP_DP$TNF_N_mature_total !=0 ,]
+Mature_producer_SP_DP$group = ifelse(Mature_producer_SP_DP$IFNG_N_mature_total > 0 & Mature_producer_SP_DP$TNF_N_mature_total > 0, "Double_producer", NA)
+Mature_producer_SP_DP$group = ifelse(Mature_producer_SP_DP$IFNG_N_mature_total > 0 & Mature_producer_SP_DP$TNF_N_mature_total == 0, "Only_IFNG", Mature_producer_SP_DP$group)
+Mature_producer_SP_DP$group = ifelse(Mature_producer_SP_DP$IFNG_N_mature_total == 0 & Mature_producer_SP_DP$TNF_N_mature_total > 0, "Only_TNF", Mature_producer_SP_DP$group)
+
+## FIGURE 2A
+## subsetting based on cytokines IFNG, TNF
+Nascent_SP_DP_IFNG = Mature_producer_SP_DP %>% select(donor, timepoint, IFNG_N_nascent_total, group)
+Nascent_SP_DP_TNF = Mature_producer_SP_DP %>% select(donor, timepoint, TNF_N_nascent_total, group)
+
+## IFNG ##
+#subsetting and renaming for easier use 
+colnames(Nascent_SP_DP_IFNG)[3] = "N_nascent_total"
+
+## removing rows that have "Only_TNF"
+Nascent_SP_DP_IFNG = Nascent_SP_DP_IFNG[Nascent_SP_DP_IFNG$group != "Only_TNF" ,]
+Nascent_SP_DP_IFNG$group = factor(Nascent_SP_DP_IFNG$group, levels = c('Only_IFNG','Double_producer'),ordered = TRUE)
+
+## lets makes some pretty plots
+producer_colors = c("Only_IFNG" = "#4575b4","Double_producer" ="#fdae61")
+
+pdf("~/XXXX/Figure_2A_IFNG.pdf")
+
+set.seed(123)
+ggplot(Nascent_SP_DP_IFNG, aes(x = group, y = N_nascent_total,color = group)) +
+  geom_point(size = 1.2, position = "jitter", alpha = 0.5)+
+  ylab(expression(~italic(n)~"(nascent RNA)/cell)")) + xlab("")+
+  facet_grid(.~timepoint, labeller = as_labeller(c("0" = "0", "1" = "1h", "2" = "2h", "3" = "3h", "4" = "4h", "6" = "6h")))+
+  ggtitle("IFNG") +
+  scale_y_continuous(limits = c(0,50), breaks = c(0,10,20,30,40,50))+
+  stat_summary(data = Nascent_SP_DP_IFNG[Nascent_SP_DP_IFNG$N_nascent_total>0,],fun.y=median,geom = "crossbar", width = 0.9, color="red",size=0.3)+
+  scale_color_manual(name = "RNA molecules", values = producer_colors,labels = c("SP","DP"))+
+  theme_classic() +
+  theme(axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) +
+theme(panel.background = element_rect(fill = "white", colour = "black"),
+        strip.background = element_rect(fill = "white", colour = "black"),
+        legend.key = element_blank(),
+        legend.title = element_blank(),
+      aspect.ratio = 16/9)
+
+dev.off()
+
+
+## TNF ##
+#subsetting and renaming for easier use 
+colnames(Nascent_SP_DP_TNF)[3] = "N_nascent_total"
+
+## removing rows that have "Only_TNF"
+Nascent_SP_DP_TNF = Nascent_SP_DP_TNF[Nascent_SP_DP_TNF$group != "Only_IFNG" ,]
+Nascent_SP_DP_TNF$group = factor(Nascent_SP_DP_TNF$group, levels = c('Only_TNF','Double_producer'),ordered = TRUE)
+
+## lets makes some pretty plots
+producer_colors = c("Only_TNF" = "#4575b4","Double_producer" ="#fdae61")
+
+pdf("~/XXXX/Figure_2A_TNF.pdf")
+
+set.seed(123)
+ggplot(Nascent_SP_DP_TNF, aes(x = group, y = N_nascent_total,color = group)) +
+  geom_point(size = 1.2, position = "jitter", alpha = 0.5)+
+  ylab(expression(~italic(n)~"(nascent RNA)/cell)")) + xlab("")+
+  facet_grid(.~timepoint, labeller = as_labeller(c("0" = "0", "1" = "1h", "2" = "2h", "3" = "3h", "4" = "4h", "6" = "6h")))+
+  ggtitle("TNF") +
+  scale_y_continuous(limits = c(0,50), breaks = c(0,10,20,30,40,50))+
+  stat_summary(data = Nascent_SP_DP_TNF[Nascent_SP_DP_TNF$N_nascent_total>0,],fun.y=median,geom = "crossbar", width = 0.9, color="red",size=0.3)+
+  scale_color_manual(name = "RNA molecules", values = producer_colors,labels = c("SP","DP"))+
+  theme_classic() +
+  theme(axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) +
+theme(panel.background = element_rect(fill = "white", colour = "black"),
+        strip.background = element_rect(fill = "white", colour = "black"),
+        legend.key = element_blank(),
+        legend.title = element_blank(),
+      aspect.ratio = 16/9)
+
+dev.off()
+
+## FIGURE 2B
+## IFNG ##
+## input the data
+pcnt_mRNA_IFNG_SP_DP = read.csv("~/XXXX/Percentage_mRNA_IFNG_single_double.csv")
+
+## colours for SP and DP
+producer_colors = c("Only_IFNG" = "#4575b4","Double_producer" ="#fdae61")
+
+pdf("~/XXXX/Figure_2B_IFNG.pdf", width = 3, height = 3)
+
+ggplot(data = pcnt_mRNA_IFNG_single_double,aes(x = factor(timepoint))) + 
+  geom_point(data = pcnt_mRNA_IFNG_single_double, aes(x = factor(timepoint), y = percentage_mRNA_single_producer,color = "Only_IFNG"),size = 1) +
+    geom_point(data = pcnt_mRNA_IFNG_single_double, aes(x = factor(timepoint), y = percentage_mRNA_double_producer,color = "Double_producer"),size = 1) +
+  stat_summary(data = pcnt_mRNA_IFNG_single_double, aes(x = factor(timepoint), y = percentage_mRNA_single_producer),fun.data=mean_sdl, fun.args = list(mult=1),geom="errorbar", color="grey",width= 0.1, size = 0.1) +
+  stat_summary(data = pcnt_mRNA_IFNG_single_double, aes(x = factor(timepoint), y = percentage_mRNA_single_producer),fun.y=mean, geom="crossbar", color="grey",width = 0.2,size =0.1) +
+  stat_summary(data = pcnt_mRNA_IFNG_single_double,fun.y = mean, geom = "path",mapping = aes(group = 1,x = factor(timepoint), y = percentage_mRNA_single_producer),size =0.1,color = "grey")+
+  stat_summary(data = pcnt_mRNA_IFNG_single_double, aes(x = factor(timepoint), y = percentage_mRNA_double_producer),fun.data=mean_sdl, fun.args = list(mult=1), geom="errorbar", color="black",width= 0.1, size = 0.1) +
+  stat_summary(data = pcnt_mRNA_IFNG_single_double, aes(x = factor(timepoint), y = percentage_mRNA_double_producer),fun.y=mean, geom="crossbar", color="black",width = 0.2,size =0.1)+
+  stat_summary(data = pcnt_mRNA_IFNG_single_double,fun.y = mean, geom = "path", mapping = aes(group = 1,x = factor(timepoint), y = percentage_mRNA_double_producer),size =0.1,color = "black")+
+  scale_color_manual(name = "Group", values = producer_colors, labels = c("DP","SP"))+
+  scale_y_continuous(limits = c(0,80),breaks = c(0,20,40,60,80),expand = c(0,0)) +
+  xlab("Timepoint(h)")+
+  ylab("% mRNA-producing cells")+
+  theme_classic()+
+  theme(panel.grid.major.y = element_line(linewidth = 0.2),
+        axis.line = element_line(size = 0.3),
+        text = element_text(size = 5),
+        axis.ticks = element_line(size = 0.3),
+        aspect.ratio = 1)+
+  ggtitle("IFNG") 
+
+dev.off()
+
+## TNF ##
+## input the data
+pcnt_mRNA_TNF_SP_DP = read.csv("~/XXXX/Percentage_mRNA_TNF_single_double.csv")
+
+## colours for SP and DP
+producer_colors = c("Only_TNF" = "#4575b4","Double_producer" ="#fdae61")
+
+pdf("~/XXXX/Figure_2B_TNF.pdf", width = 3, height = 3)
+
+ggplot(data = pcnt_mRNA_TNF_single_double,aes(x = factor(timepoint))) + 
+  geom_point(data = pcnt_mRNA_TNF_single_double, aes(x = factor(timepoint), y = percentage_mRNA_single_producer,color = "Only_TNF"),size = 1) +
+    geom_point(data = pcnt_mRNA_TNF_single_double, aes(x = factor(timepoint), y = percentage_mRNA_double_producer,color = "Double_producer"),size = 1) +
+  stat_summary(data = pcnt_mRNA_TNF_single_double, aes(x = factor(timepoint), y = percentage_mRNA_single_producer),fun.data=mean_sdl, fun.args = list(mult=1),geom="errorbar", color="grey",width= 0.1, size = 0.1) +
+  stat_summary(data = pcnt_mRNA_TNF_single_double, aes(x = factor(timepoint), y = percentage_mRNA_single_producer),fun.y=mean, geom="crossbar", color="grey",width = 0.2,size =0.1) +
+  stat_summary(data = pcnt_mRNA_TNF_single_double,fun.y = mean, geom = "path",mapping = aes(group = 1,x = factor(timepoint), y = percentage_mRNA_single_producer),size =0.1,color = "grey")+
+  stat_summary(data = pcnt_mRNA_TNF_single_double, aes(x = factor(timepoint), y = percentage_mRNA_double_producer),fun.data=mean_sdl, fun.args = list(mult=1), geom="errorbar", color="black",width= 0.1, size = 0.1) +
+  stat_summary(data = pcnt_mRNA_TNF_single_double, aes(x = factor(timepoint), y = percentage_mRNA_double_producer),fun.y=mean, geom="crossbar", color="black",width = 0.2,size =0.1)+
+  stat_summary(data = pcnt_mRNA_TNF_single_double,fun.y = mean, geom = "path", mapping = aes(group = 1,x = factor(timepoint), y = percentage_mRNA_double_producer),size =0.1,color = "black")+
+  scale_color_manual(name = "Group", values = producer_colors, labels = c("DP","SP"))+
+  scale_y_continuous(limits = c(0,80),breaks = c(0,20,40,60,80),expand = c(0,0)) +
+  xlab("Timepoint(h)")+
+  ylab("% mRNA-producing cells")+
+  theme_classic()+
+  theme(panel.grid.major.y = element_line(linewidth = 0.2),
+        # panel.grid.minor.y = element_line(linewidth = 0.2),
+        axis.line = element_line(size = 0.3),
+        text = element_text(size = 5),
+        axis.ticks = element_line(size = 0.3),
+        aspect.ratio = 1)+
+  ggtitle("TNF") 
+
+dev.off()
+
+
+## FIGURE 2C
+## subsetting based on cytokines IFNG, TNF
+Mature_SP_DP_IFNG = Mature_producer_SP_DP %>% select(donor, timepoint, IFNG_N_mature_total, group)
+Mature_SP_DP_TNF = Mature_producer_SP_DP %>% select(donor, timepoint, TNF_N_mature_total, group)
+
+## IFNG ##
+#subsetting and renaming for easier use 
+colnames(Mature_SP_DP_IFNG)[3] = "N_mature_total"
+
+## removing rows that have "Only_TNF"
+Mature_SP_DP_IFNG = Mature_SP_DP_IFNG[Mature_SP_DP_IFNG$group != "Only_TNF" ,]
+Mature_SP_DP_IFNG$group = factor(Mature_SP_DP_IFNG$group, levels = c('Only_IFNG','Double_producer'),ordered = TRUE)
+
+## lets makes some pretty plots
+producer_colors = c("Only_IFNG" = "#4575b4","Double_producer" ="#fdae61")
+
+pdf("~/XXXX/Figure_2C_IFNG.pdf")
+
+set.seed(123)
+ggplot(Mature_SP_DP_IFNG, aes(x = group, y = N_mature_total,color = group)) +
+  geom_point(size = 1.2, position = "jitter", alpha = 0.5)+
+  ylab(expression(~italic(n)~"(mRNA) / cell)")) + xlab("")+
+  facet_grid(.~timepoint, labeller = as_labeller(c("0" = "0", "1" = "1h", "2" = "2h", "3" = "3h", "4" = "4h", "6" = "6h")))+
+  ggtitle("IFNG") +
+  scale_y_log10(limits = c(1,300), guide = "prism_minor",expand = c(0.05,0),minor_breaks = rep(1:9, 4)*(10^rep(0:3, each = 9)),breaks = c(1,10,100,300))+
+  coord_cartesian(clip = "off") +
+  stat_summary(fun.y=median,geom = "crossbar", width = 0.9, color="red",size=0.3)+
+  scale_color_manual(name = "RNA molecules", values = producer_colors,labels = c("SP","DP"))+
+  theme_classic() +
+  theme(axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) +
+theme(panel.background = element_rect(fill = "white", colour = "black"),
+        strip.background = element_rect(fill = "white", colour = "black"),
+        legend.key = element_blank(),
+        legend.title = element_blank(),
+      aspect.ratio = 16/9)
+
+dev.off()
+
+
+## TNF ##
+#subsetting and renaming for easier use 
+colnames(plotting_table_TNF)[3] = "N_mature_total"
+
+## removing rows that have "Only_TNF"
+plotting_table_TNF = plotting_table_TNF[plotting_table_TNF$group != "Only_IFNG" ,]
+plotting_table_TNF$group = factor(plotting_table_TNF$group, levels = c('Only_TNF','Double_producer'),ordered = TRUE)
+
+## lets makes some pretty plots
+producer_colors = c("Only_TNF" = "#4575b4","Double_producer" ="#fdae61")
+
+pdf("~/XXXX/Figure_2C_TNF.pdf")
+
+set.seed(123)
+ggplot(plotting_table_TNF, aes(x = group, y = N_mature_total,color = group)) +
+  geom_point(size = 1.3, position = "jitter", alpha = 0.5)+
+  ylab(expression(~italic(n)~"(mRNA) / cell)")) + xlab("")+
+  facet_grid(.~timepoint, labeller = as_labeller(c("0" = "0", "1" = "1h", "2" = "2h", "3" = "3h", "4" = "4h", "6" = "6h")))+
+  ggtitle("TNF") +
+  scale_y_log10(limits = c(1,300), guide = "prism_minor",expand = c(0.05,0),minor_breaks = rep(1:9, 4)*(10^rep(0:3, each = 9)),breaks = c(1,10,100,300))+
+  coord_cartesian(clip = "off") +
+  stat_summary(fun.y=median,geom = "crossbar", width = 0.9, color="red",size=0.3)+
+  scale_color_manual(name = "RNA molecules", values = producer_colors_2,labels = c("TNF only","IFNG & TNF"))+
+  theme_classic() +
+  theme(axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) +
+theme(panel.background = element_rect(fill = "white", colour = "black"),
+        strip.background = element_rect(fill = "white", colour = "black"),
+        legend.key = element_blank(),
+        legend.title = element_blank(),
+        aspect.ratio = 16/9)
+
+dev.off()
+
+
+## FIGURE 2D
+#using the protein intensity information from FACS_IFN_all and FACS_TNF_all
+## IFNG ##
+FACS_IFN_all = transform(FACS_IFN_all, TNF = as.numeric(TNF),IFNG = as.numeric(IFNG))
+
+## Lets plot
+pdf("~/XXXX/Figure_2D_IFNG.pdf")
+
+protein_colors = c("IFN_single_producer" = "#4575b4","double_producer" = "#fdae61")  
+
+ggplot(data = FACS_IFN_all, aes(x = factor(quadrant,levels = c("IFN_single_producer","double_producer")), y = as.numeric(IFNG), fill = factor(quadrant,levels = c("IFN_single_producer","double_producer")), color = factor(quadrant,levels = c("IFN_single_producer","double_producer")))) +
+  geom_violin(aes(fill = factor(quadrant,levels = c("IFN_single_producer","double_producer")), color = factor(quadrant,levels = c("IFN_single_producer","double_producer"))))+
+    facet_wrap(~ timepoint, nrow = 1, strip.position = "bottom") +
+  ylab(expression("protein fluorescence intensity/cell")) + xlab("")+
+  scale_y_log10(limits = c(200,90000),breaks = 10^(2:7),guide = "prism_minor", minor_breaks = rep(1:9, 4)*(10^rep(0:6, each = 9)),labels = trans_format("log10", math_format(10^.x)))+
+  scale_color_manual(name = "RNA molecules", values = protein_colors,labels = c("SP","DP"))+
+    scale_fill_manual(name = "RNA molecules", values = protein_colors,labels = c("SP","DP"))+
+    stat_summary(fun.y=median,geom = "crossbar", width = 0.8, color="red",size=0.3)+
+    ggtitle("IFNG") +
+    theme_classic() +
+  theme(strip.background = element_blank(),
+        legend.key = element_blank(),
+        legend.title = element_blank(),
+        strip.placement = "outside",
+       panel.spacing.x = unit(1, 'mm'),
+        axis.text.x=element_blank(),
+       axis.ticks.x=element_blank())
+
+dev.off()
+
+## TNF ##
+FACS_TNF_all = transform(FACS_IFN_all, TNF = as.numeric(TNF),IFNG = as.numeric(IFNG))
+
+protein_colors = c("TNF_single_producer" = "#4575b4","double_producer" = "#fdae61")  
+
+## Lets plot
+pdf("~/XXXX/Figure_2D_TNF.pdf")
+
+ggplot(data = FACS_TNF_all, aes(x = factor(quadrant,levels = c("TNF_single_producer","double_producer")), y = as.numeric(TNF), fill = factor(quadrant,levels = c("TNF_single_producer","double_producer")), color = factor(quadrant,levels = c("TNF_single_producer","double_producer")))) +
+  geom_violin(aes(fill = factor(quadrant,levels = c("TNF_single_producer","double_producer")), color = factor(quadrant,levels = c("TNF_single_producer","double_producer"))))+
+    facet_wrap(~ timepoint, nrow = 1, strip.position = "bottom") +
+  ylab(expression("protein fluorescence intensity/cell")) + xlab("")+
+  scale_y_log10(limits = c(200,90000),breaks = 10^(2:7),guide = "prism_minor", minor_breaks = rep(1:9, 4)*(10^rep(0:6, each = 9)),labels = trans_format("log10", math_format(10^.x)))+
+  scale_color_manual(name = "RNA molecules", values = protein_colors,labels = c("SP","DP"))+
+    scale_fill_manual(name = "RNA molecules", values = protein_colors,labels = c("SP","DP"))+
+    stat_summary(fun.y=median,geom = "crossbar", width = 0.8, color="red",size=0.3)+
+    ggtitle("TNF") +
+    theme_classic() +
+  theme(strip.background = element_blank(),
+        legend.key = element_blank(),
+        legend.title = element_blank(),
+        strip.placement = "outside",
+       panel.spacing.x = unit(1, 'mm'),
+        axis.text.x=element_blank(),
+       axis.ticks.x=element_blank())
+
+dev.off()
+
+
+```
+
+## Plots from Figure 3
+```{r}
+
+## FIGURE 3A
+## IFNG ##
+nuc_cyto_ratio_IFNG = subset(IFNG_all, N_mature_total >0)
+
+# calculating the percentage of mRNA in the nucleus and cytoplasm
+nuc_cyto_ratio_IFNG  = nuc_cyto_ratio_IFNG %>%
+        group_by(timepoint) %>%
+        mutate(Pcnt_mRNA_nuc=(N_mature_nucleus/N_mature_total)*100) %>%
+        mutate(Pcnt_mRNA_cyto=(N_mature_cytoplasm/N_mature_total)*100) %>%
+        ungroup()
+
+# calculating the nucleus/cytoplasm ratio 
+nuc_cyto_ratio_IFNG$Pcnt_mRNA_nuc[nuc_cyto_ratio_IFNG$Pcnt_mRNA_nuc == "0"] = "1"
+nuc_cyto_ratio_IFNG$nuc_cyto_ratio = as.numeric(nuc_cyto_ratio_IFNG$Pcnt_mRNA_cyto)/as.numeric(nuc_cyto_ratio_IFNG$Pcnt_mRNA_nuc)
+
+
+pdf("~/XXXX/Figure_3A_IFNG.pdf", height = 3,width = 5)
+
+ggplot(data = nuc_cyto_ratio_IFNG , aes(y = nuc_cyto_ratio, x = as.factor(timepoint))) + 
+     geom_violin(fill = "black")+
+      geom_hline(yintercept=1,linetype="dashed", color = "black")+
+  scale_y_continuous(guide = "prism_minor",
+    trans = pseudo_log_trans(base = 10, sigma = sigma),
+    breaks = c(0,0.10,1.0,10,100),
+    labels = c(0,0.1,1,10,100),
+    minor_breaks = rep(1:9, 4)*(10^rep(0:3, each = 9))
+    )+
+  stat_summary(fun.y=median,geom = "crossbar", width = 0.9, color="red",size= 0.5)+
+  xlab("Timepoint(h)") + ylab("Cytoplasm/Nucleus") +
+    theme_classic()+
+  ggtitle("IFNG")
+
+dev.off()
+
+
+## TNF ##
+nuc_cyto_ratio_TNF = subset(TNF_all, N_mature_total >0)
+
+# calculating the percentage of mRNA in the nucleus and cytoplasm
+nuc_cyto_ratio_TNF  = nuc_cyto_ratio_TNF %>%
+        group_by(timepoint) %>%
+        mutate(Pcnt_mRNA_nuc=(N_mature_nucleus/N_mature_total)*100) %>%
+        mutate(Pcnt_mRNA_cyto=(N_mature_cytoplasm/N_mature_total)*100) %>%
+        ungroup()
+
+# calculating the nucleus/cytoplasm ratio 
+nuc_cyto_ratio_TNF$Pcnt_mRNA_nuc[nuc_cyto_ratio_TNF$Pcnt_mRNA_nuc == "0"] = "1"
+nuc_cyto_ratio_TNF$nuc_cyto_ratio = as.numeric(nuc_cyto_ratio_TNF$Pcnt_mRNA_cyto)/as.numeric(nuc_cyto_ratio_TNF$Pcnt_mRNA_nuc)
+
+
+pdf("~/XXXX/Figure_3A_TNF.pdf", height = 3,width = 5)
+
+ggplot(data = nuc_cyto_ratio_TNF , aes(y = nuc_cyto_ratio, x = as.factor(timepoint))) + 
+     geom_violin(fill = "black")+
+      geom_hline(yintercept=1,linetype="dashed", color = "black")+
+  scale_y_continuous(guide = "prism_minor",
+    trans = pseudo_log_trans(base = 10, sigma = sigma),
+    breaks = c(0,0.10,1.0,10,100),
+    labels = c(0,0.1,1,10,100),
+    minor_breaks = rep(1:9, 4)*(10^rep(0:3, each = 9))
+    )+
+  stat_summary(fun.y=median,geom = "crossbar", width = 0.9, color="red",size= 0.5)+
+  xlab("Timepoint(h)") + ylab("Cytoplasm/Nucleus") +
+    theme_classic()+
+  ggtitle("TNF")
+
+dev.off()
+
+## FIGURE 3C
+## IFNG ##
+nascent_block_IFNG = IFNG_all %>% dplyr::select(donor, sample, timepoint, N_nascent_total)
+nascent_block_IFNG = IFNG_all[IFNG_all$N_mature_total > 0, ]
+nascent_block_IFNG = nascent_block_IFNG[nascent_block_IFNG$timepoint == 2, ]
+
+#right order of the samples 
+nascent_block_IFNG_C = nascent_block_IFNG[nascent_block_IFNG$sample == "C", ]
+nascent_block_IFNG_ACTD = nascent_block_IFNG[nascent_block_IFNG$sample == "ACTD", ]
+nascent_block_IFNG_HARR = nascent_block_IFNG[nascent_block_IFNG$sample == "HARR", ]
+
+nascent_block_IFNG_selected = rbind(nascent_block_IFNG_C, nascent_block_IFNG_ACTD, nascent_block_IFNG_HARR)
+nascent_block_IFNG_selected = transform(nascent_block_IFNG_selected, timepoint = as.character(timepoint))
+nascent_block_IFNG_selected$sample = factor(nascent_block_IFNG_selected$sample, levels = c("C", "ACTD", "HARR"))
+
+#Lets plot
+pdf("~/XXXX/Figure_3C_IFNG.pdf", height = 3,width = 5)
+
+ggplot(nascent_block_IFNG_selected, aes(x = donor, y = N_nascent_total )) +
+  geom_jitter(size=2.3, position= "jitter", alpha=0.5, show.legend=FALSE) +
+  ylab(expression(~italic(N)~"(nascent RNA) / cell")) + 
+  facet_grid(~sample) +
+  coord_cartesian(clip = "off") +
+  theme_classic() +
+  ggtitle(expression("IFN"*gamma*": nascent RNA")) +
+  theme(text = element_text(size=18)) +
+  stat_summary(fun.y=median,geom = "crossbar", width = 1.0, color="red",size=0.3)+
+  ylim(c(-1,40))+
+  xlab("")+
+  theme(axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) +
+theme(panel.background = element_rect(fill = "white", colour = "black"),
+        strip.background = element_rect(fill = "white", colour = "black"),
+        legend.key = element_blank(),
+        legend.title = element_blank(),
+        aspect.ratio = 16/9)
+dev.off()
+
+
+## TNF ##
+nascent_block_TNF = TNF_all %>% dplyr::select(donor, sample, timepoint, N_nascent_total)
+nascent_block_TNF = TNF_all[TNF_all$N_mature_total > 0, ]
+nascent_block_TNF = nascent_block_TNF[nascent_block_TNF$timepoint == 2, ]
+
+#right order of the samples 
+nascent_block_TNF_C = nascent_block_TNF[nascent_block_TNF$sample == "C", ]
+nascent_block_TNF_ACTD = nascent_block_TNF[nascent_block_TNF$sample == "ACTD", ]
+nascent_block_TNF_HARR = nascent_block_TNF[nascent_block_TNF$sample == "HARR", ]
+
+nascent_block_TNF_selected = rbind(nascent_block_TNF_C, nascent_block_TNF_ACTD, nascent_block_TNF_HARR)
+nascent_block_TNF_selected = transform(nascent_block_TNF_selected, timepoint = as.character(timepoint))
+nascent_block_TNF_selected$sample = factor(nascent_block_TNF_selected$sample, levels = c("C", "ACTD", "HARR"))
+
+#Lets plot
+pdf("~/XXXX/Figure_3C_TNF.pdf", height = 3,width = 5)
+
+ggplot(nascent_block_TNF_selected, aes(x = donor, y = N_nascent_total )) +
+  geom_jitter(size=2.3, position= "jitter", alpha=0.5, show.legend=FALSE) +
+  ylab(expression(~italic(N)~"(nascent RNA) / cell")) + 
+  facet_grid(~sample) +
+  coord_cartesian(clip = "off") +
+  theme_classic() +
+  ggtitle(expression("IFN"*gamma*": nascent RNA")) +
+  theme(text = element_text(size=18)) +
+  stat_summary(fun.y=median,geom = "crossbar", width = 1.0, color="red",size=0.3)+
+  ylim(c(-1,40))+
+  xlab("")+
+  theme(axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) +
+theme(panel.background = element_rect(fill = "white", colour = "black"),
+        strip.background = element_rect(fill = "white", colour = "black"),
+        legend.key = element_blank(),
+        legend.title = element_blank(),
+        aspect.ratio = 16/9)
+dev.off()
+
+
+##FIGURE 3D
+## IFNG ##
+#first making table with mature_total>0
+mature_block_IFNG = IFNG_all[IFNG_all$N_mature_total > 0, ]
+mature_block_IFNG = mature_block_IFNG[mature_block_IFNG$timepoint == 2, ]
+
+#right order of the samples 
+mature_block_IFNG_C = mature_block_IFNG[mature_block_IFNG$sample == "C", ]
+mature_block_IFNG_ACTD = mature_block_IFNG[mature_block_IFNG$sample == "ACTD", ]
+mature_block_IFNG_HARR = mature_block_IFNG[mature_block_IFNG$sample == "HARR", ]
+
+mature_block_IFNG_selected = rbind(mature_block_IFNG_C, mature_block_IFNG_ACTD, mature_block_IFNG_HARR)
+mature_block_IFNG_selected$sample = factor(mature_block_IFNG_selected$sample, levels = c("C", "ACTD", "HARR"))
+
+#Lets plot
+pdf("~/XXXX/Figure_3D_IFNG.pdf", height = 3,width = 5)
+
+#graph for only 2h selected  
+ggplot(mature_block_IFNG_selected, aes(x=donor, y = log10_N_mature_total )) +
+  geom_jitter(size=2.3, position= "jitter", alpha= 0.5) +
+  coord_cartesian(clip = "off") +
+  stat_summary(fun.y=median,geom = "crossbar", width = 1.0, color="red",size=0.3)+
+  theme_classic() +
+  ylab(expression(~italic(N)~"(mature RNA) / cell")) + 
+  facet_grid(~sample, labeller = as_labeller(c("C" = "C", "ACTD" = "ACTD", "HARR" = "HARR"))) +
+  theme_classic() +
+  ggtitle(expression("IFN"*gamma*"")) +
+  theme(text = element_text(size=18)) +
+  scale_y_log10(limits = c(1,500), guide = "prism_minor",expand = c(0.05,0),minor_breaks = rep(1:9, 4)*(10^rep(0:3, each = 9)),breaks = c(1,10,100,300))+
+  add_logticks(side = 'l', data = data.frame(x= NA),outside = T,short = unit(.3,"mm"),mid = unit(0.8,"mm"),long = unit(1.2,"mm"))+
+   xlab("")+
+    theme(axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) +
+theme(panel.background = element_rect(fill = "white", colour = "black"),
+        strip.background = element_rect(fill = "white", colour = "black"),
+        legend.key = element_blank(),
+        legend.title = element_blank(),
+        aspect.ratio = 16/9)
+
+dev.off()
+
+## TNF ##
+mature_block_TNF = TNF_all[TNF_all$N_mature_total > 0, ]
+mature_block_TNF = mature_block_TNF[mature_block_TNF$timepoint == 2, ]
+
+#right order of the samples 
+mature_block_TNF_C = mature_block_TNF[mature_block_TNF$sample == "C", ]
+mature_block_TNF_ACTD = mature_block_TNF[mature_block_TNF$sample == "ACTD", ]
+mature_block_TNF_HARR = mature_block_TNF[mature_block_TNF$sample == "HARR", ]
+
+mature_block_TNF_selected = rbind(mature_block_TNF_C, mature_block_TNF_ACTD, mature_block_TNF_HARR)
+mature_block_TNF_selected$sample = factor(mature_block_TNF_selected$sample, levels = c("C", "ACTD", "HARR"))
+
+#Lets plot
+#graph for only 2h selected  
+pdf("~/XXXX/Figure_3D_TNF.pdf", height = 3,width = 5)
+
+ggplot(mature_block_TNF_selected, aes(x=donor, y = log10_N_mature_total )) +
+  geom_jitter(size=2.3, position= "jitter", alpha= 0.5) +
+  coord_cartesian(clip = "off") +
+  stat_summary(fun.y=median,geom = "crossbar", width = 1.0, color="red",size=0.3)+
+  theme_classic() +
+  ylab(expression(~italic(N)~"(mature RNA) / cell")) + 
+  facet_grid(~sample, labeller = as_labeller(c("C" = "C", "ACTD" = "ACTD", "HARR" = "HARR"))) +
+  theme_classic() +
+  ggtitle(expression("TNF")) +
+  theme(text = element_text(size=18)) +
+  scale_y_log10(limits = c(1,300), guide = "prism_minor",expand = c(0.05,0),minor_breaks = rep(1:9, 4)*(10^rep(0:3, each = 9)),breaks = c(1,10,100,300))+
+  add_logticks(side = 'l', data = data.frame(x= NA),outside = T,short = unit(.3,"mm"),mid = unit(0.8,"mm"),long = unit(1.2,"mm"))+
+   xlab("")+
+    theme(axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) +
+theme(panel.background = element_rect(fill = "white", colour = "black"),
+        strip.background = element_rect(fill = "white", colour = "black"),
+        legend.key = element_blank(),
+        legend.title = element_blank(),
+       aspect.ratio= 16/9)
+ 
+dev.off()
+
+##FIGURE 3E
+## IFNG ##
+## jitterplot of mature_RNA based on localization (cytoplasm and nucleus)
+cyto_nuc_IFNG = IFNG_all[IFNG_all$N_mature_total > 0 ,] 
+cyto_nuc_IFNG = transform(cyto_nuc_IFNG, timepoint = as.character(timepoint))
+
+## subsetting the data for cytoplasm and nucleus; using N_mature_nucleus/cytoplasm
+nucleus_RNA_IFNG = cyto_nuc_IFNG %>% select(ID, sample, donor, timepoint, N_mature_nucleus) %>% mutate(location = "nucleus") %>% rename(mature_RNA= N_mature_nucleus)
+cyto_RNA_IFNG = cyto_nuc_IFNG %>% select(ID, donor,sample, timepoint, N_mature_cytoplasm) %>% mutate(location = "cytoplasm")%>% rename(mature_RNA= N_mature_cytoplasm)
+
+## combining dfs of nucleus(nucleus_RNA_IFNG) and cytoplasm(cyto_RNA_IFNG)
+cyto_nuc_RNA_IFNG = rbind(cyto_RNA_IFNG,nucleus_RNA_IFNG)
+
+
+#first making table with mature_total>0
+plotting_table = cyto_nuc_RNA_IFNG[cyto_nuc_RNA_IFNG$timepoint == 2, ]
+
+#putting the right order of the samples 
+plotting_table_C = plotting_table[plotting_table$sample == "C", ]
+plotting_table_ACTD = plotting_table[plotting_table$sample == "ACTD", ]
+plotting_table_HARR = plotting_table[plotting_table$sample == "HARR", ]
+
+plotting_table_selected = rbind(plotting_table_C, plotting_table_ACTD, plotting_table_HARR)
+plotting_table_selected$sample = factor(plotting_table_selected$sample, levels = c("C", "ACTD", "HARR"))
+
+
+#Lets plot
+compartment_colors = c("nucleus" = "black","cytoplasm" ="grey49")
+
+pdf("~/XXXX/Figure_3E_IFNG.pdf", height = 3,width = 5)
+
+ggplot(plotting_table_selected, aes(x = factor(location, level=c("nucleus", "cytoplasm")),y = log10_N_mature_total, color = factor(location, level=c("nucleus", "cytoplasm")))) +
+  geom_point(size = 1.8, position = position_jitter(0.3), alpha = 0.5,aes(color = location))+
+  coord_cartesian(clip = "off")+
+  facet_grid(.~sample, labeller = as_labeller(c("C" = "C", "ACTD" = "ACTD", "HARR" = "HARR")))+
+  stat_summary(fun.y=median,geom = "crossbar", width = 0.8, color="red",size=0.3)+
+  ggtitle("IFNG")+
+  scale_y_log10(1,500, guide = "prism_minor",expand = c(0.05,0),minor_breaks = rep(1:9, 4)*(10^rep(0:3, each = 9)),breaks = c(1,10,100,300))+
+  ylab(expression(~italic(n)~"(mRNA)/compartment cell)")) + xlab("")+
+  scale_color_manual(name = "", values = compartment_colors)+
+  theme_classic() + 
+  theme(axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        legend.text = element_text(size=10),
+        text=element_text(size=10)) +
+theme(panel.background = element_rect(fill = "white", colour = "black"),
+  strip.background = element_rect(fill = "white", colour = "black"),
+        legend.key = element_blank(),
+        legend.title = element_blank(),
+         aspect.ratio = 16/9)
+
+dev.off()
+
+## TNF ##
+## jitterplot of mature_RNA based on localization (cytoplasm and nucleus)
+cyto_nuc_TNF = TNF_all[TNF_all$N_mature_total > 0 ,] 
+cyto_nuc_TNF = transform(cyto_nuc_TNF, timepoint = as.character(timepoint))
+
+## subsetting the data for cytoplasm and nucleus; using N_mature_nucleus/cytoplasm
+nucleus_RNA_TNF = cyto_nuc_TNF %>% select(ID, sample, donor, timepoint, N_mature_nucleus) %>% mutate(location = "nucleus") %>% rename(mature_RNA= N_mature_nucleus)
+cyto_RNA_TNF = cyto_nuc_TNF %>% select(ID, donor,sample, timepoint, N_mature_cytoplasm) %>% mutate(location = "cytoplasm")%>% rename(mature_RNA= N_mature_cytoplasm)
+
+## combining dfs of nucleus(nucleus_RNA_TNF) and cytoplasm(cyto_RNA_TNF)
+cyto_nuc_RNA_TNF = rbind(cyto_RNA_TNF,nucleus_RNA_TNF)
+
+
+#first making table with mature_total>0
+plotting_table = cyto_nuc_RNA_TNF[cyto_nuc_RNA_TNF$timepoint == 2, ]
+
+#putting the right order of the samples 
+plotting_table_C = plotting_table[plotting_table$sample == "C", ]
+plotting_table_ACTD = plotting_table[plotting_table$sample == "ACTD", ]
+plotting_table_HARR = plotting_table[plotting_table$sample == "HARR", ]
+
+plotting_table_selected = rbind(plotting_table_C, plotting_table_ACTD, plotting_table_HARR)
+plotting_table_selected$sample = factor(plotting_table_selected$sample, levels = c("C", "ACTD", "HARR"))
+
+
+#Lets plot
+compartment_colors = c("nucleus" = "black","cytoplasm" ="grey49")
+
+pdf("~/XXXX/Figure_3E_TNF.pdf", height = 3,width = 5)
+
+ggplot(plotting_table_selected, aes(x = factor(location, level=c("nucleus", "cytoplasm")),y = log10_N_mature_total, color = factor(location, level=c("nucleus", "cytoplasm")))) +
+  geom_point(size = 1.8, position = position_jitter(0.3), alpha = 0.5,aes(color = location))+
+  coord_cartesian(clip = "off")+
+  facet_grid(.~sample, labeller = as_labeller(c("C" = "C", "ACTD" = "ACTD", "HARR" = "HARR")))+
+  stat_summary(fun.y=median,geom = "crossbar", width = 0.8, color="red",size=0.3)+
+  ggtitle("TNF")+
+  scale_y_log10(1,500, guide = "prism_minor",expand = c(0.05,0),minor_breaks = rep(1:9, 4)*(10^rep(0:3, each = 9)),breaks = c(1,10,100,300))+
+  ylab(expression(~italic(n)~"(mRNA)/compartment cell)")) + xlab("")+
+  scale_color_manual(name = "", values = compartment_colors)+
+  theme_classic() + 
+  theme(axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        legend.text = element_text(size=10),
+        text=element_text(size=10)) +
+theme(panel.background = element_rect(fill = "white", colour = "black"),
+  strip.background = element_rect(fill = "white", colour = "black"),
+        legend.key = element_blank(),
+        legend.title = element_blank(),
+         aspect.ratio = 16/9)
+
+dev.off()
+
+
+```
+
+## Plots from Figure 4
+```{r}
+
+## FIGURE 4A
+## IFNG ##
+pdf("~/XXXX/Figure_4A_IFNG.pdf")
+
+ggplot(data = FACS_IFNG_HurKO_pcnt, aes(y = Protein, x = Sample,color = Sample)) + 
+    geom_line(aes(group = Donor), col = "black") +
+    geom_point(size = 2.5, 
+    position = position_dodge(width = 0.5), show.legend = TRUE)+
+    facet_wrap(~ Timepoint, nrow = 1, strip.position = "bottom") +
+    labs(x = "Timepoint(h)", y = "% protein-producing cells") +
+    ggtitle("IFNG:HuRKO") +
+   scale_color_manual(name = "Group", values = c("C" = "#dfc27d","HuRKO" = "#01665e"),labels = c("Control","HuRKO"))+
+    scale_y_continuous(limits = c(0,50),breaks = c(0,10,20,30,40,50)) +
+    theme_classic() +
+  theme(strip.background = element_blank(),
+        legend.key = element_blank(),
+        legend.title = element_blank(),
+        strip.placement = "outside",
+       panel.spacing.x = unit(1, 'mm'),
+        axis.text.x=element_blank(),
+       axis.ticks.x=element_blank(),
+       aspect.ratio = 16/9)
+
+dev.off()
+
+
+## TNF ##
+pdf("~/XXXX/Figure_4A_TNF.pdf")
+
+ggplot(data = FACS_TNF_HurKO_pcnt, aes(y = Protein, x = Sample,color = Sample)) + 
+    geom_line(aes(group = Donor), col = "black") +
+    geom_point(size = 2.5, 
+    position = position_dodge(width = 0.5), show.legend = TRUE)+
+    facet_wrap(~ Timepoint, nrow = 1, strip.position = "bottom") +
+    labs(x = "Timepoint(h)", y = "% protein-producing cells") +
+    ggtitle("TNF:HuRKO") +
+   scale_color_manual(name = "Group", values = c("C" = "#dfc27d","HuRKO" = "#01665e"),labels = c("Control","HuRKO"))+
+    scale_y_continuous(limits = c(0,80),breaks = c(0,20,40,60,80)) +
+    theme_classic() +
+  theme(strip.background = element_blank(),
+        legend.key = element_blank(),
+        legend.title = element_blank(),
+        strip.placement = "outside",
+       panel.spacing.x = unit(1, 'mm'),
+        axis.text.x=element_blank(),
+       axis.ticks.x=element_blank(),
+       aspect.ratio = 16/9)
+
+dev.off()
+
+
+## FIGURE 4B
+## Import FACS data for HuRKO and control
+HuRKO_FACS_IFN_ctrl = read.csv("~/XXXX/HuRKO_FACS_IFN_Control.csv")
+HuRKO_FACS_TNF_ctrl = read.csv("~/XXXX/HuRKO_FACS_TNF_Control.csv")
+HuRKO_FACS_IFN_KO = read.csv("~/XXXX/HuRKO_FACS_IFN_HuRKO.csv")
+HuRKO_FACS_TNF_KO = read.csv("~/XXXX/HuRKO_FACS_TNF_HuRKO.csv")
+
+## IFNG ##
+# extracting data to plot
+HuRKO_FACS_IFN_ctrl$condition = "Control"
+HuRKO_FACS_IFN_KO$condition = "KO"
+
+plot_HuRKO_FACS_IFN_all = rbind(HuRKO_FACS_IFN_ctrl,HuRKO_FACS_IFN_KO)
+plot_HuRKO_FACS_IFN_all$timepoint = gsub("h","",plot_HuRKO_FACS_IFN_all$timepoint)
+plot_HuRKO_FACS_IFN_all = transform(plot_HuRKO_FACS_IFN_all, timepoint = as.character(timepoint))
+plot_HuRKO_FACS_IFN_all = transform(plot_HuRKO_FACS_IFN_all, IFNG = as.numeric(IFNG)) #making sure they are numeric
+plot_HuRKO_FACS_IFN_all$use_Donor = "D" #pooled donors
+
+
+# lets plot
+HuR_colors = c("Control" = "#dfc27d","KO" = "#01665e")
+
+pdf("~/XXXX/Figure_4B_IFNG.pdf")
+
+ggplot(data = subset(plot_HuRKO_FACS_IFN_all, timepoint == c("0","1","2")), aes(x = factor(condition, levels = c("Control","KO")), y = IFNG, fill = condition)) +
+  geom_violin(aes(fill = condition))+
+    facet_wrap(~ timepoint, nrow = 1, strip.position = "bottom") +
+  ylab(expression("protein fluorescence intensity/cell")) + xlab("")+
+      scale_y_log10(limits = c(1000,900000),breaks = 10^(2:7),guide = "prism_minor", minor_breaks = rep(1:9, 4)*(10^rep(0:6, each = 9)),labels = trans_format("log10", math_format(10^.x)))+
+      scale_fill_manual(name = "", values = HuR_colors)+
+    stat_summary(fun.y=median,geom = "crossbar", width = 0.8, color="red",size=0.3)+
+    ggtitle("IFNG(batch) violin plots") +
+    theme_classic() +
+  theme(strip.background = element_blank(),
+        legend.key = element_blank(),
+        legend.title = element_blank(),
+        strip.placement = "outside",
+       panel.spacing.x = unit(1, 'mm'),
+        axis.text.x=element_blank(),
+       axis.ticks.x=element_blank(),
+       aspect.ratio = 16/9)
+
+dev.off()
+
+## TNF ##
+# extracting data to plot
+HuRKO_FACS_TNF_ctrl$condition = "Control"
+HuRKO_FACS_TNF_KO$condition = "KO"
+
+plot_HuRKO_FACS_TNF_all = rbind(HuRKO_FACS_TNF_ctrl,HuRKO_FACS_TNF_KO)
+plot_HuRKO_FACS_TNF_all$timepoint = gsub("h","",plot_HuRKO_FACS_TNF_all$timepoint)
+plot_HuRKO_FACS_TNF_all = transform(plot_HuRKO_FACS_TNF_all, timepoint = as.character(timepoint))
+plot_HuRKO_FACS_TNF_all = transform(plot_HuRKO_FACS_TNF_all, TNF = as.numeric(TNF)) #making sure they are numeric
+plot_HuRKO_FACS_TNF_all$use_Donor = "D" #pooled donors
+
+
+# lets plot
+HuR_colors = c("Control" = "#dfc27d","KO" = "#01665e")
+
+pdf("~/XXXX/Figure_4B_TNF.pdf")
+
+ggplot(data = subset(plot_HuRKO_FACS_TNF_all, timepoint == c("0","1","2")), aes(x = factor(condition, levels = c("Control","KO")), y = TNF, fill = condition)) +
+  geom_violin(aes(fill = condition))+
+    facet_wrap(~ timepoint, nrow = 1, strip.position = "bottom") +
+  ylab(expression("protein fluorescence intensity/cell")) + xlab("")+
+      scale_y_log10(limits = c(1000,900000),breaks = 10^(2:7),guide = "prism_minor", minor_breaks = rep(1:9, 4)*(10^rep(0:6, each = 9)),labels = trans_format("log10", math_format(10^.x)))+
+      scale_fill_manual(name = "", values = HuR_colors)+
+    stat_summary(fun.y=median,geom = "crossbar", width = 0.8, color="red",size=0.3)+
+    ggtitle("TNF(batch) violin plots") +
+    theme_classic() +
+  theme(strip.background = element_blank(),
+        legend.key = element_blank(),
+        legend.title = element_blank(),
+        strip.placement = "outside",
+       panel.spacing.x = unit(1, 'mm'),
+        axis.text.x=element_blank(),
+       axis.ticks.x=element_blank(),
+       aspect.ratio = 16/9)
+
+dev.off()
+
+## FIGURE 4D
+## using the mature RNA info from HURKO_data
+
+## IFNG ##
+## selecting only the ones with N_mature_total
+mature_IFN_HuRKO = HuRKO_IFNG_all[HuRKO_IFNG_all$N_mature_total > 0 ,] 
+mature_IFN_HuRKO = mature_IFN_HuRKO %>% dplyr::select(donor, sample, timepoint, N_mature_total)
+mature_IFN_HuRKO = transform(mature_IFN_HuRKO, timepoint = as.character(timepoint))
+
+#Lets plot 
+HuR_colors = c("C" = "#dfc27d","HuRKO" = "#01665e")
+
+pdf("~/XXXX/Figure_4D_IFNG.pdf")
+
+set.seed(123)
+ggplot(mature_IFN_HuRKO[mature_IFN_HuRKO$timepoint == c("0","1","2"),], aes(x = sample, y = N_mature_total, color = sample)) +
+  geom_point(size = 1.5, position = "jitter", alpha = 0.5)+
+  ylab(expression(~italic(n)~"(mature RNA)/cell)")) + xlab("")+
+  facet_grid(.~timepoint, labeller = as_labeller(c("0" = "0", "1" = "1h", "2" = "2h", "3" = "3h", "4" = "4h")))+
+  ggtitle("IFNG:HurKO") +
+  scale_y_log10(limits = c(1,500), guide = "prism_minor",expand = c(0.05,0),minor_breaks = rep(1:9, 4)*(10^rep(0:3, each = 9)),breaks = c(1,10,100,500))+
+  coord_cartesian(clip = "off") +
+  stat_summary(data = mature_IFN_HuRKO[mature_IFN_HuRKO$N_mature_total >0 & mature_IFN_HuRKO$timepoint == c("0","1","2"),],fun.y=median,geom = "crossbar", width = 0.9, color="red",size=0.3)+
+  scale_color_manual(name = "", values = HuR_colors,labels = c("Control","HuR KO"))+
+  theme_classic() +
+  theme(axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) +
+theme(panel.background = element_rect(fill = "white", colour = "black"),
+        strip.background = element_rect(fill = "white", colour = "black"),
+        legend.key = element_blank(),
+        legend.title = element_blank(),
+        aspect.ratio = 16/9)
+
+dev.off()
+
+
+
+## TNF ##
+## selecting only the ones with N_mature_total
+mature_TNF_HuRKO = HuRKO_TNF_all[HuRKO_TNF_all$N_mature_total > 0 ,] 
+mature_TNF_HuRKO = mature_TNF_HuRKO %>% dplyr::select(donor, sample, timepoint, N_mature_total)
+mature_TNF_HuRKO = transform(mature_TNF_HuRKO, timepoint = as.character(timepoint))
+
+#Lets plot 
+HuR_colors = c("C" = "#dfc27d","HuRKO" = "#01665e")
+
+pdf("~/XXXX/Figure_4D_TNF.pdf")
+
+set.seed(123)
+ggplot(mature_TNF_HuRKO[mature_TNF_HuRKO$timepoint == c("0","1","2"),], aes(x = sample, y = N_mature_total, color = sample)) +
+  geom_point(size = 1.5, position = "jitter", alpha = 0.5)+
+  ylab(expression(~italic(n)~"(mature RNA)/cell)")) + xlab("")+
+  facet_grid(.~timepoint, labeller = as_labeller(c("0" = "0", "1" = "1h", "2" = "2h", "3" = "3h", "4" = "4h")))+
+  ggtitle("Mature RNA; HuR KO (TNF)") +
+  scale_y_log10(limits = c(1,500), guide = "prism_minor",expand = c(0.05,0),minor_breaks = rep(1:9, 4)*(10^rep(0:3, each = 9)),breaks = c(1,10,100,500))+
+  coord_cartesian(clip = "off") +
+  stat_summary(data = mature_TNF_HuRKO[mature_TNF_HuRKO$N_mature_total >0 & mature_TNF_HuRKO$timepoint == c("0","1","2"),],fun.y=median,geom = "crossbar", width = 0.9, color="red",size=0.3)+
+  scale_color_manual(name = "", values = HuR_colors,labels = c("Control","HuR KO"))+
+  theme_classic() +
+  theme(axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) +
+theme(panel.background = element_rect(fill = "white", colour = "black"),
+        strip.background = element_rect(fill = "white", colour = "black"),
+        legend.key = element_blank(),
+        legend.title = element_blank(),
+        aspect.ratio = 16/9)
+
+dev.off()
+
+
+## FIGURE 4E
+## using the nascent RNA info from HURKO_data
+## IFNG ## 
+nascent_IFN_HuRKO = HuRKO_IFNG_all[HuRKO_IFNG_all$N_mature_total > 0 ,] 
+nascent_IFN_HuRKO = nascent_IFN_HuRKO %>% dplyr::select(donor, sample, timepoint, N_nascent_total) #select the necessary columns
+nascent_IFN_HuRKO = transform(nascent_IFN_HuRKO, timepoint = as.character(timepoint)) #make sure timepoint is as.character
+nascent_IFN_HuRKO$use_Donor = "D" #pooled donor
+
+pdf("~/XXXX/Figure_4E_IFNG.pdf")
+
+set.seed(123)
+ggplot(nascent_IFN_HuRKO[nascent_IFN_HuRKO$timepoint == c("0","1","2"),], aes(x = sample, y = N_nascent_total, color = sample)) + ## only 0h, 1h, 2h
+  geom_point(size = 1.5, position = "jitter", alpha = 0.5)+
+  ylab(expression(~italic(n)~"(nascent RNA)/cell)")) + xlab("")+
+  facet_grid(.~timepoint, labeller = as_labeller(c("0" = "0", "1" = "1h", "2" = "2h", "3" = "3h", "4" = "4h")))+
+  ggtitle("IFNG:HURKO") +
+  scale_y_continuous(limits = c(0,70), breaks = c(0,10,30,50,70))+
+  coord_cartesian(clip = "off") +
+  stat_summary(data = nascent_IFN_HuRKO[nascent_IFN_HuRKO$N_nascent_total >0 & nascent_IFN_HuRKO$timepoint == c("0","1","2"),],fun.y=median,geom = "crossbar", width = 0.9, color="red",size=0.3)+
+  scale_color_manual(name = "", values = HuR_colors,labels = c("Control","HuR KO"))+
+  theme_classic() +
+  theme(axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) +
+theme(panel.background = element_rect(fill = "white", colour = "black"),
+        strip.background = element_rect(fill = "white", colour = "black"),
+        legend.key = element_blank(),
+        legend.title = element_blank(),
+        aspect.ratio = 16/9)
+
+dev.off()
+
+## TNF ## 
+nascent_TNF_HuRKO = HuRKO_TNF_all[HuRKO_TNF_all$N_mature_total > 0 ,] 
+nascent_TNF_HuRKO = nascent_TNF_HuRKO %>% dplyr::select(donor, sample, timepoint, N_nascent_total) #select the necessary columns
+nascent_TNF_HuRKO = transform(nascent_TNF_HuRKO, timepoint = as.character(timepoint)) #make sure timepoint is as.character
+nascent_TNF_HuRKO$use_Donor = "D" #pooled donor
+
+pdf("~/XXXX/Figure_4E_TNF.pdf")
+
+set.seed(123)
+ggplot(nascent_TNF_HuRKO[nascent_TNF_HuRKO$timepoint == c("0","1","2"),], aes(x = sample, y = N_nascent_total, color = sample)) +
+  geom_point(size = 1.5, position = "jitter", alpha = 0.5)+
+  ylab(expression(~italic(n)~"(nascent RNA)/cell)")) + xlab("")+
+  facet_grid(.~timepoint, labeller = as_labeller(c("0" = "0", "1" = "1h", "2" = "2h", "3" = "3h", "4" = "4h")))+
+  ggtitle("TNF:HURKO") +
+  scale_y_continuous(limits = c(0,70), breaks = c(0,10,30,50,70))+
+  coord_cartesian(clip = "off") +
+  stat_summary(data = nascent_TNF_HuRKO[nascent_TNF_HuRKO$N_nascent_total >0 & nascent_TNF_HuRKO$timepoint == c("0","1","2"),],fun.y=median,geom = "crossbar", width = 0.9, color="red",size=0.3)+
+  scale_color_manual(name = "", values = HuR_colors,labels = c("Control","HuR KO"))+
+  theme_classic() +
+  theme(axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) +
+theme(panel.background = element_rect(fill = "white", colour = "black"),
+        strip.background = element_rect(fill = "white", colour = "black"),
+        legend.key = element_blank(),
+        legend.title = element_blank(),
+        aspect.ratio = 16/9)
+
+dev.off()
+
+```
+
+
+## Plots from Figure 5
+```{r}
+
+## FIGURE 5A
+## extracting the compartment(cytoplasm and nucleus) info from HURKO_data 
+
+## IFNG ## 
+cyto_nuc_IFNG_HuRKO = HuRKO_IFNG_all[HuRKO_IFNG_all$N_mature_total > 0 ,]#selecting mature_total >0
+
+# extracting nucleus and cytoplasm info; using N_mature_nucleusN_mature_cytoplasm
+## Nucleus
+nucleus_RNA_IFNG_HuRKO = cyto_nuc_IFNG_HuRKO %>% select(ID, donor, timepoint, N_mature_nucleus, cytokine,sample) %>% mutate(location = "nucleus") %>% rename(mature_RNA= N_mature_nucleus, ID = ID)
+## Cytoplasm
+cyto_RNA_IFNG_HuRKO = cyto_nuc_IFNG_HuRKO %>% select(ID, donor, timepoint,  N_mature_cytoplasm, cytokine,sample) %>% mutate(location = "cytoplasm")%>% rename(mature_RNA= N_mature_cytoplasm, ID = ID)
+
+## combining dfs of nucleus(nucleus_RNA_) and cytoplasm(cyto_RNA_TNF)
+cyto_nuc_IFNG_HuRKO = rbind(nucleus_RNA_IFNG_HuRKO,cyto_RNA_IFNG_HuRKO)
+
+## renaming sample to condition 
+names(cyto_nuc_IFNG_HuRKO)[6] = "condition"
+cyto_nuc_IFNG_HuRKO$condition[cyto_nuc_IFNG_HuRKO$condition == "C"] = "Control"
+
+group_labels = c("Double_producer"="Double producer","Only_IFNG"="Only IFNG")
+timepoint_lables = c("0" = "0", "1" = "1h", "2" = "2h", "3" = "3h", "4" = "4h")
+HuR_colors = c("Control" = "#dfc27d","HuRKO" = "#01665e")
+
+pdf("~/XXXX/Figure_5A_IFNG.pdf")
+
+set.seed(123)
+ggplot(subset(cyto_nuc_IFNG_HuRKO, timepoint == c("0","1","2")), aes(x = factor(condition, level=c("Control", "HuRKO")),y = log10(mature_RNA+0.5), color = factor(condition, level=c("Control", "HuRKO")))) +
+  geom_point(size = 1, position = position_jitter(0.3), alpha = 0.5,aes(color = condition))+
+  ylab(expression("Log10(n(mRNA)/compartment cell))")) + xlab("")+
+    facet_grid(rows = vars(location), cols = vars(timepoint), scales="free_y",labeller = labeller(group = group_labels, timepoint=timepoint_lables))+
+scale_y_continuous(limits = c(-0.5,3), breaks = c(-0.5,0,1,2,3))+
+stat_summary(fun.y=median,geom = "crossbar", width = 0.8, color="red",size=0.3)+
+  ggtitle("IFNG:HURKO")+
+  scale_color_manual(name = "", values = HuR_colors)+
+  theme_classic() + 
+theme(panel.background = element_rect(fill = "white", colour = "black"),
+  strip.background = element_rect(fill = "white", colour = "black"),
+        legend.key = element_blank(),
+        legend.title = element_blank(),
+        axis.text.x = element_text(angle = 90))
+
+dev.off()
+
+
+## TNF ## 
+cyto_nuc_TNF_HuRKO = HuRKO_TNF_all[HuRKO_TNF_all$N_mature_total > 0 ,]#selecting mature_total >0
+
+# extracting nucleus and cytoplasm info; using N_mature_nucleusN_mature_cytoplasm
+## Nucleus
+nucleus_RNA_TNF_HuRKO = cyto_nuc_TNF_HuRKO %>% select(ID, donor, timepoint, N_mature_nucleus, cytokine,sample) %>% mutate(location = "nucleus") %>% rename(mature_RNA= N_mature_nucleus, ID = ID)
+## Cytoplasm
+cyto_RNA_TNF_HuRKO = cyto_nuc_TNF_HuRKO %>% select(ID, donor, timepoint,  N_mature_cytoplasm, cytokine,sample) %>% mutate(location = "cytoplasm")%>% rename(mature_RNA= N_mature_cytoplasm, ID = ID)
+
+## combining dfs of nucleus(nucleus_RNA_) and cytoplasm(cyto_RNA_TNF)
+cyto_nuc_TNF_HuRKO = rbind(nucleus_RNA_TNF_HuRKO,cyto_RNA_TNF_HuRKO)
+
+## renaming sample to condition 
+names(cyto_nuc_TNF_HuRKO)[6] = "condition"
+cyto_nuc_TNF_HuRKO$condition[cyto_nuc_TNF_HuRKO$condition == "C"] = "Control"
+
+group_labels = c("Double_producer"="Double producer","Only_TNF"="Only TNF")
+timepoint_lables = c("0" = "0", "1" = "1h", "2" = "2h", "3" = "3h", "4" = "4h")
+HuR_colors = c("Control" = "#dfc27d","HuRKO" = "#01665e")
+
+pdf("~/XXXX/Figure_5A_TNF.pdf")
+
+set.seed(123)
+ggplot(subset(cyto_nuc_TNF_HuRKO, timepoint == c("0","1","2")), aes(x = factor(condition, level=c("Control", "HuRKO")),y = log10(mature_RNA+0.5), color = factor(condition, level=c("Control", "HuRKO")))) +
+  geom_point(size = 1, position = position_jitter(0.3), alpha = 0.5,aes(color = condition))+
+  ylab(expression("Log10(n(mRNA)/compartment cell))")) + xlab("")+
+    facet_grid(rows = vars(location), cols = vars(timepoint), scales="free_y",labeller = labeller(group = group_labels, timepoint=timepoint_lables))+
+scale_y_continuous(limits = c(-0.5,3), breaks = c(-0.5,0,1,2,3))+
+stat_summary(fun.y=median,geom = "crossbar", width = 0.8, color="red",size=0.3)+
+  ggtitle("TNF:mRNA distribution per compartment")+
+  scale_color_manual(name = "", values = HuR_colors)+
+  theme_classic() + 
+theme(panel.background = element_rect(fill = "white", colour = "black"),
+  strip.background = element_rect(fill = "white", colour = "black"),
+        legend.key = element_blank(),
+        legend.title = element_blank(),
+        axis.text.x = element_text(angle = 90))
+
+dev.off()
+
+```
+
+## Plots for Supp figure 1
+```{r}
+
+## SUPP FIGURE 1C
+## IFNG ##
+## using the percentage tables 
+IFNG_TSs_percentages_tables = read.csv("~/XXXX/Percentage_active_transcription_IFNG.csv")
+IFNG_TSs_percentages_tables = IFNG_TSs_percentages_tables %>% dplyr::select(donor, timepoint, percentage_producing_nascent_1_TS, percentage_producing_nascent_2_TSs) # selecting the necessary columns
+IFNG_TSs_percentages_tables = pivot_longer(IFNG_TSs_percentages_tables, cols = c("percentage_producing_nascent_1_TS", "percentage_producing_nascent_2_TSs"))
+IFNG_TSs_percentages_tables$pooled_TSS = "pooled_TSS" ## poolede donors
+
+#Lets plot 
+## stacked bar colours
+barplot_colors =  c("percentage_producing_nascent_2_TSs"="#b2df8a", "percentage_producing_nascent_1_TS"="#1f78b4")
+
+pdf("~/XXXX/Supp_Figuree_1C_IFNG.pdf")
+
+ggplot(data=IFNG_TSs_percentages_tables, aes(x= as.factor(donor), y=value, fill=factor(name, levels=c("percentage_producing_nascent_2_TSs","percentage_producing_nascent_1_TS" )))) +
+  geom_bar(stat="identity", position="stack", width =0.9)+
+  # geom_text(aes(label = paste0(round(value, 2),"%")),size = 3)+
+  xlab("") + ylab("% Cells with transcription sites") + 
+  scale_x_discrete(position = "top") +
+  facet_grid(.~timepoint, labeller = as_labeller(c("0" = "0", "1" = "1h", "2" = "2h", "3" = "3h", "4" = "4h", "6" = "6h")))+
+  ggtitle("IFNG") +
+  theme_classic() +
+  scale_fill_manual(values = barplot_colors,
+                    breaks=c("percentage_producing_nascent_2_TSs", "percentage_producing_nascent_1_TS"),
+                    labels=c("2 sites", "1 site"))+
+  scale_y_continuous(limits = c(0,12),breaks = c(0,2,4,6,8,10,12))+
+theme(panel.background = element_rect(fill = "white", colour = "black"),
+        strip.background = element_rect(fill = "grey", colour = "black"),
+      panel.grid.major.y = element_line(linewidth = 0.2),
+        legend.key = element_blank(),
+        legend.title = element_blank(),
+       strip.placement = "outside",
+       aspect.ratio = 16/9)
+
+dev.off()
+
+## TNF ##
+## using the percentage tables 
+TNF_TSs_percentages_tables = read.csv("~/XXXX/Percentage_active_transcription_TNF.csv")
+TNF_TSs_percentages_tables = TNF_TSs_percentages_tables %>% dplyr::select(donor, timepoint, percentage_producing_nascent_1_TS, percentage_producing_nascent_2_TSs) # selecting the necessary columns
+TNF_TSs_percentages_tables = pivot_longer(TNF_TSs_percentages_tables, cols = c("percentage_producing_nascent_1_TS", "percentage_producing_nascent_2_TSs"))
+TNF_TSs_percentages_tables$pooled_TSS = "pooled_TSS" ## poolede donors
+
+#Lets plot 
+## stacked bar colours
+barplot_colors =  c("percentage_producing_nascent_2_TSs"="#b2df8a", "percentage_producing_nascent_1_TS"="#1f78b4")
+
+pdf("~/XXXX/Supp_Figuree_1C_TNF.pdf")
+
+ggplot(data=TNF_TSs_percentages_tables, aes(x= as.factor(donor), y=value, fill=factor(name, levels=c("percentage_producing_nascent_2_TSs","percentage_producing_nascent_1_TS" )))) +
+  geom_bar(stat="identity", position="stack", width =0.9)+
+  # geom_text(aes(label = paste0(round(value, 2),"%")),size = 3)+
+  xlab("") + ylab("% Cells with transcription sites") + 
+  scale_x_discrete(position = "top") +
+  facet_grid(.~timepoint, labeller = as_labeller(c("0" = "0", "1" = "1h", "2" = "2h", "3" = "3h", "4" = "4h", "6" = "6h")))+
+  ggtitle("TNF") +
+  theme_classic() +
+  scale_fill_manual(values = barplot_colors,
+                    breaks=c("percentage_producing_nascent_2_TSs", "percentage_producing_nascent_1_TS"),
+                    labels=c("2 sites", "1 site"))+
+  scale_y_continuous(limits = c(0,12),breaks = c(0,2,4,6,8,10,12))+
+theme(panel.background = element_rect(fill = "white", colour = "black"),
+        strip.background = element_rect(fill = "grey", colour = "black"),
+      panel.grid.major.y = element_line(linewidth = 0.2),
+        legend.key = element_blank(),
+        legend.title = element_blank(),
+       strip.placement = "outside",
+       aspect.ratio = 16/9)
+
+dev.off()
+
+## SUPP FIGURE 1D
+## IFNG ##
+pdf("~/XXXX/Supp_Figuree_1D_IFNG.pdf")
+
+set.seed(123)
+ggplot(nascent_plotting_IFNG, aes(x = as.factor(donor), y = N_nascent_total)) +
+  geom_point(size = 0.75, position = position_jitter(0.3), alpha = 0.5)+
+  ylab(expression(~italic(n)~"(nascent RNA)/cell)")) + xlab("")+
+  scale_x_discrete(position = "top") +
+  facet_grid(.~timepoint, labeller = as_labeller(c("0" = "0", "1" = "1h", "2" = "2h", "3" = "3h", "4" = "4h", "6" = "6h")))+
+  ggtitle("IFNG") +
+  scale_y_continuous(limits = c(0,50), breaks = c(0,10,20,30,40,50))+
+  stat_summary(data = nascent_plotting_IFNG[nascent_plotting_IFNG$N_nascent_total>0,],fun.y=median,geom = "crossbar", width = 0.75, color="red",size=0.3)+
+  theme_classic() +
+theme(panel.background = element_rect(fill = "white", colour = "black"),
+        strip.background = element_rect(fill = "white", colour = "black"),
+        legend.key = element_blank(),
+        legend.title = element_blank(),
+        strip.placement = "outside",
+       panel.spacing.x = unit(1, 'mm'),
+       aspect.ratio = 16/9)
+
+dev.off()
+
+## TNF ##
+pdf("~/XXXX/Supp_Figuree_1D_TNF.pdf")
+
+set.seed(123)
+ggplot(nascent_plotting_TNF, aes(x = as.factor(donor), y = N_nascent_total)) +
+  geom_point(size = 0.75, position = position_jitter(0.3), alpha = 0.5)+
+  ylab(expression(~italic(n)~"(nascent RNA)/cell)")) + xlab("")+
+  scale_x_discrete(position = "top") +
+  facet_grid(.~timepoint, labeller = as_labeller(c("0" = "0", "1" = "1h", "2" = "2h", "3" = "3h", "4" = "4h", "6" = "6h")))+
+  ggtitle("TNF") +
+  scale_y_continuous(limits = c(0,50), breaks = c(0,10,20,30,40,50))+
+  stat_summary(data = nascent_plotting_TNF[nascent_plotting_TNF$N_nascent_total>0,],fun.y=median,geom = "crossbar", width = 0.75, color="red",size=0.3)+
+  theme_classic() +
+theme(panel.background = element_rect(fill = "white", colour = "black"),
+        strip.background = element_rect(fill = "white", colour = "black"),
+        legend.key = element_blank(),
+        legend.title = element_blank(),
+        strip.placement = "outside",
+       panel.spacing.x = unit(1, 'mm'),
+       aspect.ratio = 16/9)
+
+dev.off()
+
+## SUPP FIGURE 1E
+#using the percentage table of mRNA producing cells
+## IFNG ##
+IFNG_mRNA_percentages = read.csv("~/XXXX/Percentage_active_transcription_IFNG.csv")
+
+pdf("~/XXXX/Supp_Figure_1E_IFNG.pdf")
+
+ggplot(IFNG_mRNA_percentages, aes(x = factor(timepoint), y = percentage_producing, color = donor)) + 
+  geom_point(size = 1) + 
+  stat_summary(fun.data=mean_sdl, fun.args = list(mult=1), 
+        geom="errorbar", color="black", width=0.1,size = 0.1) +
+  stat_summary(fun.y=mean, geom="crossbar", color="black",width = 0.2,size =0.1)+
+    stat_summary(fun.y = mean, geom = "path",
+               mapping = aes(group = -1),size =0.1)+
+  theme_classic()+
+  scale_colour_manual(values=donor_color) +
+  scale_y_continuous(limits = c(0,100),breaks = c(0,20,40,60,80,100),expand = c(0,0)) +
+  xlab("Timepoint(h)")+
+  ylab("% mRNA-producing cells")+
+  ggtitle("IFNG") +
+  theme(aspect.ratio = 1)+
+  theme(panel.grid.major.y = element_line(linewidth = 0.2),
+        # panel.grid.minor.y = element_line(linewidth = 0.2),
+        axis.line = element_line(size = 0.3),
+        text = element_text(size = 5),
+        axis.ticks = element_line(size = 0.3))
+
+dev.off()
+
+## TNF ##
+TNF_mRNA_percentages = read.csv("~/XXXX/Percentage_active_transcription_TNF.csv")
+
+pdf("~/XXXX/Supp_Figure_1E_TNF.pdf")
+
+ggplot(TNF_mRNA_percentages, aes(x = factor(timepoint), y = percentage_producing, color = donor)) + 
+  geom_point(size = 1) + 
+  stat_summary(fun.data=mean_sdl, fun.args = list(mult=1), 
+        geom="errorbar", color="black", width=0.1,size = 0.1) +
+  stat_summary(fun.y=mean, geom="crossbar", color="black",width = 0.2,size =0.1)+
+    stat_summary(fun.y = mean, geom = "path",
+               mapping = aes(group = -1),size =0.1)+
+  theme_classic()+
+  scale_colour_manual(values=donor_color) +
+  scale_y_continuous(limits = c(0,100),breaks = c(0,20,40,60,80,100),expand = c(0,0)) +
+  xlab("Timepoint(h)")+
+  ylab("% mRNA-producing cells")+
+  ggtitle("TNF") +
+  theme(aspect.ratio = 1)+
+  theme(panel.grid.major.y = element_line(linewidth = 0.2),
+        # panel.grid.minor.y = element_line(linewidth = 0.2),
+        axis.line = element_line(size = 0.3),
+        text = element_text(size = 5),
+        axis.ticks = element_line(size = 0.3))
+
+dev.off()
+
+
+## SUPP FIGURE 1F
+## IFNG ##
+pdf("~/XXXX/Supp_Figure_1F_IFNG.pdf")
+
+set.seed(123)
+ggplot(mature_plotting_IFNG, aes(x = as.factor(donor), y = N_mature_total)) +
+  geom_point(size = 1, position = "jitter", alpha = 0.5)+
+  ylab(expression("mature RNA / cell)")) + xlab("")+
+  facet_grid(.~timepoint, labeller = as_labeller(c("0" = "0", "1" = "1h", "2" = "2h", "3" = "3h", "4" = "4h", "6" = "6h")))+
+  ggtitle("IFNG") +
+  scale_y_log10(limits = c(1,300), guide = "prism_minor",expand = c(0.05,0),minor_breaks = rep(1:9, 4)*(10^rep(0:3, each = 9)),breaks = c(1,10,100,300))+
+  coord_cartesian(clip = "off") +
+  coord_fixed()+
+  stat_summary(fun.y=median,geom = "crossbar", width = 1.0, color="red",size=0.3)+
+  theme_classic() +
+  theme(axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) +
+theme(panel.background = element_rect(fill = "white", colour = "black"),
+        strip.background = element_rect(fill = "white", colour = "black"),
+        legend.key = element_blank(),
+        legend.title = element_blank(),
+      aspect.ratio = 16/9)
+
+dev.off()
+
+## TNF ##
+pdf("~/XXXX/Supp_Figure_1F_TNF.pdf")
+
+set.seed(123)
+ggplot(mature_plotting_TNF, aes(x = as.factor(donor), y = N_mature_total)) +
+  geom_point(size = 1, position = "jitter", alpha = 0.5)+
+  ylab(expression("mature RNA / cell)")) + xlab("")+
+  facet_grid(.~timepoint, labeller = as_labeller(c("0" = "0", "1" = "1h", "2" = "2h", "3" = "3h", "4" = "4h", "6" = "6h")))+
+  ggtitle("TNF") +
+  scale_y_log10(limits = c(1,300), guide = "prism_minor",expand = c(0.05,0),minor_breaks = rep(1:9, 4)*(10^rep(0:3, each = 9)),breaks = c(1,10,100,300))+
+  coord_cartesian(clip = "off") +
+  coord_fixed()+
+  stat_summary(fun.y=median,geom = "crossbar", width = 0.8, color="red",size=0.3)+
+  theme_classic() +
+  theme(axis.text.x=element_blank(),
+        axis.ticks.x=element_blank()) +
+theme(panel.background = element_rect(fill = "white", colour = "black"),
+        strip.background = element_rect(fill = "white", colour = "black"),
+        legend.key = element_blank(),
+        legend.title = element_blank(),
+      aspect.ratio = 16/9)
+
+dev.off()
+
+```
+
+
+## Plots for Supp figure 2
+```{r}
+
+## SUPP FIGURE 2A
+## IFNG ##
+#extrating data for plotting
+pcnt_IFNG_TSS_pooled_donor = read.csv("~/XXXX/Percentage_active_TsX_SP_DP_IFNG.csv")
+pcnt_IFNG_TSS_pooled_donor = pcnt_IFNG_TSS_pooled_donor %>% dplyr::select(donor, timepoint,percentage_nascent_1_TS_only_IFNG,percentage_nascent_2_TSs_only_IFNG,percentage_nascent_1_TS_double_producer,percentage_nascent_2_TSs_double_producer)
+pcnt_IFNG_TSS_pooled_donor = pivot_longer(pcnt_IFNG_TSS_pooled_donor, cols = c("percentage_nascent_1_TS_only_IFNG", "percentage_nascent_2_TSs_only_IFNG", "percentage_nascent_1_TS_double_producer","percentage_nascent_2_TSs_double_producer"))
+
+pcnt_IFNG_TSS_pooled_donor$group = substr(pcnt_IFNG_TSS_pooled_donor$name, 20, nchar(pcnt_IFNG_TSS_pooled_donor$name))
+pcnt_IFNG_TSS_pooled_donor$TSS_status = substr(pcnt_IFNG_TSS_pooled_donor$group, 1, 4)
+pcnt_IFNG_TSS_pooled_donor$group = sub("^.*?_", "", pcnt_IFNG_TSS_pooled_donor$group)
+pcnt_IFNG_TSS_pooled_donor$group = gsub("TSs_","",pcnt_IFNG_TSS_pooled_donor$group)
+pcnt_IFNG_TSS_pooled_donor$group = gsub("TS_","",pcnt_IFNG_TSS_pooled_donor$group)
+
+#Lets plot 
+## stacked bar colours for TSS in 
+barplot_colors =  c("1_TS"="#1f78b4", "2_TS"="#b2df8a")
+
+pdf("~/XXXX/Supp_Figure_2A_IFNG.pdf")
+
+ggplot(data=pcnt_IFNG_TSS_pooled_donor, aes(x= factor(group, levels = c("only_IFNG","double_producer")), y=value, fill=factor(TSS_status, levels=c("2_TS","1_TS")))) +
+  geom_bar(stat="identity", position="stack", width =0.9)+
+  xlab("") + ylab("% Cells with active TsX") + 
+  scale_x_discrete(labels = c("only_IFNG"="SP","double_producer"="DP")) +
+    facet_grid(cols = vars(timepoint), scales="free_y",labeller = labeller(timepoint=c("0" = "0", "1" = "1h", "2" = "2h", "3" = "3h", "4" = "4h", "6"="6h")))+
+  ggtitle("IFNG") +
+  theme_classic() +
+  scale_fill_manual(values = barplot_colors,
+                    breaks= c("1_TS","2_TS"),
+                    labels=c("2 sites", "1 site"))+
+  scale_y_continuous(limits = c(0,10),breaks = c(0,2,4,6,8,10))+
+theme(panel.background = element_rect(fill = "white", colour = "black"),
+        strip.background = element_rect(fill = "white", colour = "black"),
+      panel.grid.major.y = element_line(linewidth = 0.2),
+        legend.key = element_blank(),
+        legend.title = element_blank(),
+            axis.ticks.x = element_blank(),
+      aspect.ratio = 16/9)
+
+dev.off()
+
+## TNF ##
+#extrating data for plotting
+pcnt_TNF_TSS_pooled_donor = read.csv("~/XXXX/Percentage_active_TsX_SP_DP_TNF.csv")
+pcnt_TNF_TSS_pooled_donor = pcnt_TNF_TSS_pooled_donor %>% dplyr::select(donor, timepoint,percentage_nascent_1_TS_only_TNF,percentage_nascent_2_TSs_only_TNF,percentage_nascent_1_TS_double_producer,percentage_nascent_2_TSs_double_producer)
+pcnt_TNF_TSS_pooled_donor = pivot_longer(pcnt_TNF_TSS_pooled_donor, cols = c("percentage_nascent_1_TS_only_TNF", "percentage_nascent_2_TSs_only_TNF", "percentage_nascent_1_TS_double_producer","percentage_nascent_2_TSs_double_producer"))
+
+pcnt_TNF_TSS_pooled_donor$group = substr(pcnt_TNF_TSS_pooled_donor$name, 20, nchar(pcnt_TNF_TSS_pooled_donor$name))
+pcnt_TNF_TSS_pooled_donor$TSS_status = substr(pcnt_TNF_TSS_pooled_donor$group, 1, 4)
+pcnt_TNF_TSS_pooled_donor$group = sub("^.*?_", "", pcnt_TNF_TSS_pooled_donor$group)
+pcnt_TNF_TSS_pooled_donor$group = gsub("TSs_","",pcnt_TNF_TSS_pooled_donor$group)
+pcnt_TNF_TSS_pooled_donor$group = gsub("TS_","",pcnt_TNF_TSS_pooled_donor$group)
+
+#Lets plot 
+## stacked bar colours for TSS in 
+barplot_colors =  c("1_TS"="#1f78b4", "2_TS"="#b2df8a")
+
+pdf("~/XXXX/Supp_Figure_2A_TNF.pdf")
+
+ggplot(data=pcnt_TNF_TSS_pooled_donor, aes(x= factor(group, levels = c("only_TNF","double_producer")), y=value, fill=factor(TSS_status, levels=c("2_TS","1_TS")))) +
+  geom_bar(stat="identity", position="stack", width =0.9)+
+  xlab("") + ylab("% Cells with active TsX") + 
+  scale_x_discrete(labels = c("only_TNF"="SP","double_producer"="DP")) +
+    facet_grid(cols = vars(timepoint), scales="free_y",labeller = labeller(timepoint=c("0" = "0", "1" = "1h", "2" = "2h", "3" = "3h", "4" = "4h", "6"="6h")))+
+  ggtitle("TNF") +
+  theme_classic() +
+  scale_fill_manual(values = barplot_colors,
+                    breaks= c("1_TS","2_TS"),
+                    labels=c("2 sites", "1 site"))+
+  scale_y_continuous(limits = c(0,10),breaks = c(0,2,4,6,8,10))+
+theme(panel.background = element_rect(fill = "white", colour = "black"),
+        strip.background = element_rect(fill = "white", colour = "black"),
+      panel.grid.major.y = element_line(linewidth = 0.2),
+        legend.key = element_blank(),
+        legend.title = element_blank(),
+            axis.ticks.x = element_blank(),
+      aspect.ratio = 16/9)
+
+dev.off()
+
+## SUPP FIGURE 2B
+## IFNG ##
+#input the data
+protein_IFNG_SP_DP = read_excel("~/XXXX/Percentage_protein_producing_cells_SP_DP_IFNG.xlsx",col_names = T)
+# add the timepoint, donor and other additional information
+protein_IFNG_SP_DP$Timepoint = c("0","1","2","3","4","6")
+protein_IFNG_SP_DP = pivot_longer(protein_IFNG_SP_DP, cols = c("SP_D1","DP_D1","SP_D2","DP_D2","SP_D3","DP_D3"))
+protein_IFNG_SP_DP$Donor = str_sub(protein_IFNG_SP_DP$name,-2,-1)
+protein_IFNG_SP_DP$Producers = str_sub(protein_IFNG_SP_DP$name,-5,-4)
+protein_IFNG_SP_DP$Producers = factor(protein_IFNG_SP_DP$Producers, levels = c("SP","DP"))
+
+#Lets plot
+producer_colors = c("SP" = "#4575b4","DP" ="#fdae61")
+
+pdf("~/XXXX/Supp_Figure_2B_IFNG.pdf")
+
+ggplot(data = protein_IFNG_SP_DP, aes(y = value, x = Producers,color = Producers)) + 
+    geom_line(aes(group = Donor), col = "black") +
+    geom_point(size = 2.5, 
+    position = position_dodge(width = 0.5), show.legend = TRUE)+
+    facet_wrap(~ Timepoint, nrow = 1, strip.position = "bottom") +
+    labs(x = "Timepoint(h)", y = "% protein-producing cells") +
+    ggtitle("IFNG") +
+   scale_color_manual(values = producer_colors)+
+    scale_y_continuous(limits = c(0,15),breaks = c(0,5,10,15)) +
+    theme_classic() +
+  theme(strip.background = element_blank(),
+        legend.key = element_blank(),
+        legend.title = element_blank(),
+        strip.placement = "outside",
+       panel.spacing.x = unit(1, 'mm'),
+        axis.text.x=element_blank(),
+       axis.ticks.x=element_blank(),
+       aspect.ratio = 16/9)
+
+dev.off()
+
+
+## TNF ##
+#input the data
+protein_TNF_SP_DP = read_excel("~/XXXX/Percentage_protein_producing_cells_SP_DP_TNF.xlsx",col_names = T)
+# add the timepoint, donor and other additional information
+protein_TNF_SP_DP$Timepoint = c("0","1","2","3","4","6")
+protein_TNF_SP_DP = pivot_longer(protein_TNF_SP_DP, cols = c("SP_D1","DP_D1","SP_D2","DP_D2","SP_D3","DP_D3"))
+protein_TNF_SP_DP$Donor = str_sub(protein_TNF_SP_DP$name,-2,-1)
+protein_TNF_SP_DP$Producers = str_sub(protein_TNF_SP_DP$name,-5,-4)
+protein_TNF_SP_DP$Producers = factor(protein_TNF_SP_DP$Producers, levels = c("SP","DP"))
+
+#Lets plot
+producer_colors = c("SP" = "#4575b4","DP" ="#fdae61")
+
+pdf("~/XXXX/Supp_Figure_2B_TNF.pdf")
+
+ggplot(data = protein_TNF_SP_DP, aes(y = value, x = Producers,color = Producers)) + 
+    geom_line(aes(group = Donor), col = "black") +
+    geom_point(size = 2.5, 
+    position = position_dodge(width = 0.5), show.legend = TRUE)+
+    facet_wrap(~ Timepoint, nrow = 1, strip.position = "bottom") +
+    labs(x = "Timepoint(h)", y = "% protein-producing cells") +
+    ggtitle("TNF") +
+   scale_color_manual(values = producer_colors)+
+    scale_y_continuous(limits = c(0,10),breaks = c(0,2,4,6,8,10)) +
+    theme_classic() +
+  theme(strip.background = element_blank(),
+        legend.key = element_blank(),
+        legend.title = element_blank(),
+        strip.placement = "outside",
+       panel.spacing.x = unit(1, 'mm'),
+        axis.text.x=element_blank(),
+       axis.ticks.x=element_blank(),
+       aspect.ratio = 16/9)
+
+dev.off()
+
+```
+
+## Plots for Supp figure 3
+```{r}
+
+## IFNG ##
+## selecting mature_RNA based on localization (cytoplasm and nucleus)
+cyto_nuc_IFNG = IFNG_all[IFNG_all$N_mature_total > 0 ,] 
+cyto_nuc_IFNG = transform(cyto_nuc_IFNG, timepoint = as.character(timepoint))
+
+## subsetting the data for cytoplasm and nucleus; using N_mature_nucleus/cytoplasm
+nucleus_RNA_IFNG = cyto_nuc_IFNG %>% select(ID, donor, timepoint, N_mature_nucleus) %>% mutate(location = "nucleus") %>% rename(mature_RNA= N_mature_nucleus)
+cyto_RNA_IFNG = cyto_nuc_IFNG %>% select(ID, donor, timepoint, N_mature_cytoplasm) %>% mutate(location = "cytoplasm")%>% rename(mature_RNA= N_mature_cytoplasm)
+
+## combining dfs of nucleus(nucleus_RNA_IFNG) and cytoplasm(cyto_RNA_IFNG)
+cyto_nuc_RNA_IFNG = rbind(cyto_RNA_IFNG,nucleus_RNA_IFNG)
+
+#Lets plot
+compartment_colors = c("nucleus" = "#4575b4","cytoplasm" ="#fdae61")
+
+pdf("~/XXXX/Supp_Figure_3A_IFNG.pdf")
+
+set.seed(123)
+ggplot(cyto_nuc_RNA_IFNG, aes(x = factor(location, level=c("nucleus", "cytoplasm")),y = log10(mature_RNA+0.5), color = factor(location, level=c("nucleus", "cytoplasm")))) +
+  geom_point(size = 1, position = position_jitter(0.3), alpha = 0.5,aes(color = location))+
+  ylab(expression("")) + xlab("")+
+  facet_grid(.~timepoint, labeller = as_labeller(c("0" = "0", "1" = "1h", "2" = "2h", "3" = "3h", "4" = "4h", "6" = "6h")))+
+  stat_summary(fun.y=median,geom = "crossbar", width = 0.8, color="red",size=0.3)+
+  ggtitle("IFNG")+
+  scale_y_continuous(limits = c(-0.5,2.5), breaks = c(-0.5,0,0.5,1,1.5,2,2.5)) +
+  scale_x_discrete(labels=c("nucleus"="N","cytoplasm"= "C"))+
+  scale_color_manual(name = "", values = compartment_colors, labels = c("N","C"))+
+  theme_classic() + 
+  theme(legend.text = element_text(size=10),
+        text=element_text(size=10)) +
+theme(panel.background = element_rect(fill = "white", colour = "black"),
+      strip.background = element_rect(fill = "white", colour = "black"),
+      aspect.ratio = 16/9)
+
+dev.off()
+
+
+## TNF ##
+## selecting mature_RNA based on localization (cytoplasm and nucleus)
+cyto_nuc_TNF = TNF_all[TNF_all$N_mature_total > 0 ,] 
+cyto_nuc_TNF = transform(cyto_nuc_TNF, timepoint = as.character(timepoint))
+
+## subsetting the data for cytoplasm and nucleus; using N_mature_nucleus/cytoplasm
+nucleus_RNA_TNF = cyto_nuc_TNF %>% select(ID, donor, timepoint, N_mature_nucleus) %>% mutate(location = "nucleus") %>% rename(mature_RNA= N_mature_nucleus)
+cyto_RNA_TNF = cyto_nuc_TNF %>% select(ID, donor, timepoint, N_mature_cytoplasm) %>% mutate(location = "cytoplasm")%>% rename(mature_RNA= N_mature_cytoplasm)
+
+## combining dfs of nucleus(nucleus_RNA_TNF) and cytoplasm(cyto_RNA_TNF)
+cyto_nuc_RNA_TNF = rbind(cyto_RNA_TNF,nucleus_RNA_TNF)
+
+#Lets plot
+compartment_colors = c("nucleus" = "#4575b4","cytoplasm" ="#fdae61")
+
+pdf("~/XXXX/Supp_Figure_3A_TNF.pdf")
+
+set.seed(123)
+ggplot(cyto_nuc_RNA_TNF, aes(x = factor(location, level=c("nucleus", "cytoplasm")),y = log10(mature_RNA+0.5), color = factor(location, level=c("nucleus", "cytoplasm")))) +
+  geom_point(size = 1, position = position_jitter(0.3), alpha = 0.5,aes(color = location))+
+  ylab(expression("")) + xlab("")+
+  facet_grid(.~timepoint, labeller = as_labeller(c("0" = "0", "1" = "1h", "2" = "2h", "3" = "3h", "4" = "4h", "6" = "6h")))+
+  stat_summary(fun.y=median,geom = "crossbar", width = 0.8, color="red",size=0.3)+
+  ggtitle("TNF")+
+  scale_y_continuous(limits = c(-0.5,2.5), breaks = c(-0.5,0,0.5,1,1.5,2,2.5)) +
+  scale_x_discrete(labels=c("nucleus"="N","cytoplasm"= "C"))+
+  scale_color_manual(name = "", values = compartment_colors, labels = c("N","C"))+
+  theme_classic() + 
+  theme(legend.text = element_text(size=10),
+        text=element_text(size=10)) +
+theme(panel.background = element_rect(fill = "white", colour = "black"),
+      strip.background = element_rect(fill = "white", colour = "black"),
+      aspect.ratio = 16/9)
+
+dev.off()
+
+```
+
+## Plots for Supp figure 4
+```{r}
+
+## SUPP FIGURE 4D
+## IFNG ##
+IFNG_mRNA_percentages_HURKO = read.csv("~/XXXX/Percentages_mRNA_producing_HuRKO_IFNG")
+IFNG_mRNA_percentages_HURKO = subset(IFNG_mRNA_percentages_HURKO, timepoint == c(0,1,2)) #until 2H
+
+#Lets plot
+pdf("~/XXXX/Supp_Figure_4D_IFNG.pdf")
+
+ggplot(data = IFNG_mRNA_percentages_HURKO,aes(x = factor(timepoint))) + 
+  geom_point(data = IFNG_mRNA_percentages_HURKO[IFNG_mRNA_percentages_HURKO$sample=="Control",], aes(x = factor(timepoint), y = percentage_producing,color = "Control"),size = 1) +
+  geom_point(data = IFNG_mRNA_percentages_HURKO[IFNG_mRNA_percentages_HURKO$sample=="HuRKO" ,], aes(x = factor(timepoint), y = percentage_producing, color = "HuRKO"),size = 1) +
+  stat_summary(data = IFNG_mRNA_percentages_HURKO[IFNG_mRNA_percentages_HURKO$sample=="Control" ,], aes(x = factor(timepoint), y = percentage_producing),fun.data=mean_sdl, fun.args = list(mult=1),
+        geom="errorbar", color="grey",width= 0.1, size = 0.1) +
+  stat_summary(data = IFNG_mRNA_percentages_HURKO[IFNG_mRNA_percentages_HURKO$sample=="Control" ,], aes(x = factor(timepoint), y = percentage_producing),fun.y=mean, geom="crossbar", color="grey",width = 0.2,size =0.1)+
+  stat_summary(data = IFNG_mRNA_percentages_HURKO[IFNG_mRNA_percentages_HURKO$sample=="Control",],fun.y = mean, geom = "path", mapping = aes(group = 1,x = factor(timepoint), y = percentage_producing),size =0.1,color = "grey")+
+  stat_summary(data = IFNG_mRNA_percentages_HURKO[IFNG_mRNA_percentages_HURKO$sample=="HuRKO",], aes(x = factor(timepoint), y = percentage_producing),fun.data=mean_sdl, fun.args = list(mult=1),geom="errorbar", color="black",width= 0.1, size = 0.1) +
+  stat_summary(data = IFNG_mRNA_percentages_HURKO[IFNG_mRNA_percentages_HURKO$sample=="HuRKO" ,], aes(x = factor(timepoint), y = percentage_producing),fun.y=mean, geom="crossbar", color="black",width = 0.2,size =0.1)+
+  stat_summary(data = IFNG_mRNA_percentages_HURKO[IFNG_mRNA_percentages_HURKO$sample=="HuRKO",],fun.y = mean, geom = "path",
+               mapping = aes(group = 1,x = factor(timepoint), y = percentage_producing),size =0.1,color = "black")+
+  scale_color_manual(name = "Group", values = c("Control" = "#dfc27d","HuRKO" = "#01665e"),labels = c("Control","HuRKO"))+
+  xlab("Timepoint(h)")+
+  ylab("% mRNA-producing cells")+
+  ggtitle("IFNG") +
+  theme_classic()+
+  ylim(limits = c(0,100))+
+  theme(panel.grid.major.y = element_line(linewidth = 0.2),
+        axis.line = element_line(size = 0.3),
+        text = element_text(size = 5),
+        axis.ticks = element_line(size = 0.3),
+        aspect.ratio = 4/3)
+
+dev.off()
+
+## TNF ##
+TNF_mRNA_percentages_HURKO = read.csv("~/XXX/Percentages_mRNA_producing_HuRKO_TNF.csv")
+TNF_mRNA_percentages_HURKO = subset(TNF_mRNA_percentages_HURKO, timepoint == c(0,1,2)) #until 2H
+
+#Lets plot
+pdf("~/XXXX/Supp_Figure_4D_TNF.pdf")
+
+ggplot(data = TNF_mRNA_percentages_HURKO,aes(x = factor(timepoint))) + 
+  geom_point(data = TNF_mRNA_percentages_HURKO[TNF_mRNA_percentages_HURKO$sample=="Control" ,], aes(x = factor(timepoint), y = percentage_producing,color = "Control"),size = 1) +
+  geom_point(data = TNF_mRNA_percentages_HURKO[TNF_mRNA_percentages_HURKO$sample=="HuRKO" ,], aes(x = factor(timepoint), y = percentage_producing, color = "HuRKO"),size = 1) +
+  stat_summary(data = TNF_mRNA_percentages_HURKO[TNF_mRNA_percentages_HURKO$sample=="Control",], aes(x = factor(timepoint), y = percentage_producing),fun.data=mean_sdl, fun.args = list(mult=1),
+        geom="errorbar", color="grey",width= 0.1, size = 0.1) +
+  stat_summary(data = TNF_mRNA_percentages_HURKO[TNF_mRNA_percentages_HURKO$sample=="Control",], aes(x = factor(timepoint), y = percentage_producing),fun.y=mean, geom="crossbar", color="grey",width = 0.2,size =0.1)+
+  stat_summary(data = TNF_mRNA_percentages_HURKO[TNF_mRNA_percentages_HURKO$sample=="Control" ,],fun.y = mean, geom = "path", mapping = aes(group = 1,x = factor(timepoint), y = percentage_producing),size =0.1,color = "grey")+
+  stat_summary(data = TNF_mRNA_percentages_HURKO[TNF_mRNA_percentages_HURKO$sample=="HuRKO" ,], aes(x = factor(timepoint), y = percentage_producing),fun.data=mean_sdl, fun.args = list(mult=1),geom="errorbar", color="black",width= 0.1, size = 0.1) +
+  stat_summary(data = TNF_mRNA_percentages_HURKO[TNF_mRNA_percentages_HURKO$sample=="HuRKO" ,], aes(x = factor(timepoint), y = percentage_producing),fun.y=mean, geom="crossbar", color="black",width = 0.2,size =0.1)+
+  stat_summary(data = TNF_mRNA_percentages_HURKO[TNF_mRNA_percentages_HURKO$sample=="HuRKO",],fun.y = mean, geom = "path",
+               mapping = aes(group = 1,x = factor(timepoint), y = percentage_producing),size =0.1,color = "black")+
+  scale_color_manual(name = "Group", values = c("Control" = "#dfc27d","HuRKO" = "#01665e"),labels = c("Control","HuRKO"))+
+  xlab("Timepoint(h)")+
+  ylab("% mRNA-producing cells")+
+  ggtitle("TNF") +
+  theme_classic()+
+  theme(panel.grid.major.y = element_line(linewidth = 0.2),
+        axis.line = element_line(size = 0.3),
+        text = element_text(size = 5),
+        axis.ticks = element_line(size = 0.3),
+        aspect.ratio = 4/3)
+
+dev.off()
+
+```
